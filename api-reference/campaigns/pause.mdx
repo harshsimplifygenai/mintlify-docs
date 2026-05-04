@@ -1,0 +1,76 @@
+---
+title: "POST /campaign/pause — Pause a campaign"
+sidebarTitle: "Pause"
+description: "Pause an in-progress campaign. New calls stop immediately; in-flight calls complete normally."
+---
+
+Pauses an `in-progress` (or `warmup`/`dormant`) campaign. New contacts are not dialed until you call [`/campaign/resume`](/api-reference/campaigns/resume). Calls already in flight finish on their own.
+
+## Endpoint
+
+```
+POST https://api.verbeo.ai/v1/campaign/pause
+```
+
+## Request body
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign to pause.
+</ParamField>
+
+## Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://api.verbeo.ai/v1/campaign/pause" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" }'
+```
+
+```javascript Node.js
+await fetch("https://api.verbeo.ai/v1/campaign/pause", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.VERBEO_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ campaign_id: "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" }),
+});
+```
+
+```python Python
+import os, requests
+
+requests.post(
+    "https://api.verbeo.ai/v1/campaign/pause",
+    headers={"Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}"},
+    json={"campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff"},
+)
+```
+
+</CodeGroup>
+
+## Response
+
+A `200 OK` with the orchestrator's view of the transition. Already-paused campaigns return the current state unchanged.
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+    "status": "paused"
+  }
+}
+```
+
+## Error responses
+
+| Code | Status | Cause |
+|---|---|---|
+| `MISSING_FIELD` | 400 | `campaign_id` not provided. |
+| `UNAUTHORIZED` | 401 | Missing/invalid API key. |
+| `CAMPAIGN_NOT_FOUND` | 404 | Campaign UUID isn't in your workspace. |
+| `ORCHESTRATOR_ERROR` | 500 | Internal coordinator error. Safe to retry. |

@@ -35,7 +35,7 @@ You can **pause** a running campaign at any time and **resume** it later. You ca
 Send a `POST` request to the campaign creation endpoint with your contact list and configuration.
 
 ```text
-POST https://api.verbeo.ai/campaigns/create
+POST https://api.verbeo.ai/v1/campaign/create
 ```
 
 ### Request fields
@@ -65,7 +65,7 @@ Each contact in the `contacts` array can include:
 This example creates a campaign to call 3 contacts. If a contact does not answer, Verbeo retries after 5 minutes, then again after 15 minutes, for a maximum of 3 total attempts per contact.
 
 ```bash
-curl -X POST "https://api.verbeo.ai/campaigns/create" \
+curl -X POST "https://api.verbeo.ai/v1/campaign/create" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -103,7 +103,7 @@ curl -X POST "https://api.verbeo.ai/campaigns/create" \
 Set `scheduled_at` to a future UTC timestamp and Verbeo will start the campaign automatically without any further action from you.
 
 ```bash
-curl -X POST "https://api.verbeo.ai/campaigns/create" \
+curl -X POST "https://api.verbeo.ai/v1/campaign/create" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -171,7 +171,7 @@ Each contact gets a personalized call with their own values substituted in.
 A campaign in `draft` state must be explicitly resumed to start. Scheduled campaigns start automatically, but you can also resume them early.
 
 ```bash
-curl -X POST "https://api.verbeo.ai/campaigns/resume" \
+curl -X POST "https://api.verbeo.ai/v1/campaign/resume" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -182,7 +182,7 @@ curl -X POST "https://api.verbeo.ai/campaigns/resume" \
 ### Pause a campaign
 
 ```bash
-curl -X POST "https://api.verbeo.ai/campaigns/pause" \
+curl -X POST "https://api.verbeo.ai/v1/campaign/pause" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -192,8 +192,10 @@ curl -X POST "https://api.verbeo.ai/campaigns/pause" \
 
 ### Cancel a campaign
 
+The endpoint is named `archive` for historical reasons; the action it performs is a permanent cancel.
+
 ```bash
-curl -X POST "https://api.verbeo.ai/campaigns/cancel" \
+curl -X POST "https://api.verbeo.ai/v1/campaign/archive" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -204,6 +206,39 @@ curl -X POST "https://api.verbeo.ai/campaigns/cancel" \
 <Warning>
   Cancellation is permanent. A cancelled campaign cannot be resumed. If you need to stop calls temporarily, use **pause** instead.
 </Warning>
+
+### Check progress
+
+Poll [`/campaign/status`](/api-reference/campaigns/status) for live counters, or [`/campaign/stats`](/api-reference/campaigns/stats) for a per-contact-status breakdown. Both endpoints take just `{ campaign_id }`.
+
+## Restrict dialing to business hours
+
+Pass a `business_hours` object on create (or update) to gate outbound dialing to specific weekdays and time-of-day windows in a chosen timezone. Outside the window, the campaign moves to `dormant` and resumes automatically when the next allowed window opens — you don't need to poll or restart it.
+
+```bash
+curl -X POST "https://api.verbeo.ai/v1/campaign/create" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_name": "Business-hours outreach",
+    "agent_id": "YOUR_AGENT_ID",
+    "phone_number_id": "YOUR_PHONE_ID",
+    "contacts": [{"phone_number": "+12125550001"}],
+    "business_hours": {
+      "tz": "America/New_York",
+      "days": [1, 2, 3, 4, 5],
+      "windows": [{ "start": 540, "end": 1020 }]
+    }
+  }'
+```
+
+Field semantics:
+
+- `tz` — IANA timezone (e.g. `"America/New_York"`).
+- `days` — ISO weekdays: `1` = Monday … `7` = Sunday.
+- `windows` — Each window's `start`/`end` is **minutes since local midnight**. The example above is 9:00 AM (540) to 5:00 PM (1020) Mon–Fri. Cross-midnight windows aren't supported — split them into two windows on adjacent days.
+
+If `business_hours` fails validation (bad tz, empty days, overlapping windows, etc.) the create call returns `400 INVALID_BUSINESS_HOURS` with the full list of issues. Pass `null` (or omit the field) for 24/7 dispatch.
 
 ## Concurrency and scale
 

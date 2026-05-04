@@ -1,0 +1,85 @@
+---
+title: "POST /campaign/resume — Resume or start a campaign"
+sidebarTitle: "Resume"
+description: "Single endpoint that starts a draft/scheduled campaign or unpauses a paused one. Verbeo picks the right action based on current status."
+---
+
+This single endpoint covers both **starting** a fresh campaign and **resuming** a paused one — same mapping the dashboard's "Resume" button uses:
+
+| Current status | Action sent to orchestrator |
+|---|---|
+| `draft`, `scheduled` | `start` |
+| `paused` | `resume` |
+
+## Endpoint
+
+```
+POST https://api.verbeo.ai/v1/campaign/resume
+```
+
+## Request body
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign to resume or start.
+</ParamField>
+
+## Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://api.verbeo.ai/v1/campaign/resume" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" }'
+```
+
+```javascript Node.js
+await fetch("https://api.verbeo.ai/v1/campaign/resume", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.VERBEO_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ campaign_id: "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" }),
+});
+```
+
+```python Python
+import os, requests
+
+requests.post(
+    "https://api.verbeo.ai/v1/campaign/resume",
+    headers={"Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}"},
+    json={"campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff"},
+)
+```
+
+</CodeGroup>
+
+## Response
+
+A `200 OK` with the orchestrator's transition payload.
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+    "status": "warmup"
+  }
+}
+```
+
+<Note>
+  After resume, a campaign typically passes through `warmup` (call pool is being prepared) before reaching `in-progress`. If `business_hours` is set and the current time is outside an allowed window, the campaign goes straight to `dormant` and waits for the next window automatically.
+</Note>
+
+## Error responses
+
+| Code | Status | Cause |
+|---|---|---|
+| `MISSING_FIELD` | 400 | `campaign_id` not provided. |
+| `UNAUTHORIZED` | 401 | Missing/invalid API key. |
+| `CAMPAIGN_NOT_FOUND` | 404 | Campaign UUID isn't in your workspace. |
+| `ORCHESTRATOR_ERROR` | 500 | Internal coordinator error. Safe to retry. |

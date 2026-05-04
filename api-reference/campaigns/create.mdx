@@ -1,153 +1,156 @@
 ---
-title: "POST /campaigns — Create campaign"
+title: "POST /campaign/create — Create campaign"
 sidebarTitle: "Create campaign"
-description: "Create an outbound call campaign with a contact list, retry logic, and optional scheduling. Campaigns stay in draft status until you explicitly resume them."
+description: "Create an outbound batch campaign with a contact list, retry logic, optional scheduling, and optional business-hours gating. Campaigns start in draft status until you resume them."
 ---
 
-A campaign lets you place outbound calls to a list of contacts using a single API call. You provide the contact list, the agent and phone number to use, and optional retry and scheduling parameters. Campaigns are created in `draft` status and do not start calling until you call the [resume action](/api-reference/campaigns/manage). You can also schedule a campaign to start automatically at a future time.
-
-<Note>
-  The Campaigns API uses a different base URL from the core API:
-  `https://api.verbeo.ai/campaigns`
-</Note>
+A campaign places outbound AI voice calls to a list of contacts. You upload the contacts, point them at one of your agents and one of your phone numbers, and Verbeo handles dialing, retries, and finalization. Campaigns are created in `draft` status and do not start dialing until you call [`/campaign/resume`](/api-reference/campaigns/resume) — unless you set `scheduled_at`, in which case they start automatically at that time.
 
 ## Endpoint
 
 ```
-POST https://api.verbeo.ai/campaigns/create
+POST https://api.verbeo.ai/v1/campaign/create
 ```
 
 ## Request body
 
 <ParamField body="campaign_name" type="string" required>
-  Display name for the campaign. Visible in the dashboard.
-</ParamField>
-
-<ParamField body="phone_number" type="string">
-  Outbound phone number in E.164 format (e.g., `"+12629779611"`). Either `phone_number` or `phone_number_id` is required.
-</ParamField>
-
-<ParamField body="phone_number_id" type="string">
-  UUID of the phone number in your workspace. Either `phone_number` or `phone_number_id` is required.
+  Display name shown in the dashboard.
 </ParamField>
 
 <ParamField body="agent_id" type="string" required>
-  UUID of the agent that will handle calls in this campaign.
+  UUID of the agent that will handle calls in this campaign. Must belong to your workspace.
+</ParamField>
+
+<ParamField body="phone_number_id" type="string">
+  UUID of the outbound phone number. Either `phone_number_id` **or** `phone_number` is required.
+</ParamField>
+
+<ParamField body="phone_number" type="string">
+  Phone number in E.164 format (e.g. `"+15551234567"`). Looked up by value in your workspace. Either `phone_number_id` **or** `phone_number` is required.
 </ParamField>
 
 <ParamField body="contacts" type="object[]" required>
-  Array of contacts to call. Must contain at least one contact. There is no upper limit on the number of contacts.
+  Recipients to dial. Must contain at least one entry. There is no upper limit.
 
-  <Expandable title="contact object properties">
+  <Expandable title="contact properties">
     <ParamField body="phone_number" type="string" required>
-      Contact's phone number in E.164 format.
+      Number to dial, in E.164 format.
     </ParamField>
     <ParamField body="contact_name" type="string">
-      Contact's display name. Available to the agent as `{{contact_name}}` if referenced in the system prompt.
+      Display name. Available to the agent at runtime as `{{contact_name}}`.
     </ParamField>
     <ParamField body="custom_data" type="object">
-      Any additional key-value pairs for this contact. All fields are injected as dynamic variables during the call and can be referenced in the agent's system prompt as `{{key_name}}`.
+      Arbitrary key/value JSON. Each key is exposed to the agent's prompt as `{{key}}` for personalization, and surfaced in post-call analysis.
     </ParamField>
   </Expandable>
 </ParamField>
 
 <ParamField body="max_retries" type="number" default="0">
-  Number of additional attempts to make if the initial call does not connect. Range: `0` to `6`. A value of `2` means up to 3 total attempts per contact (1 initial + 2 retries).
-
-  Retries are triggered by: no answer, voicemail detected, busy signal, or dial failure. A contact that answers and then hangs up is considered successful and will not be retried.
+  Number of additional attempts per contact after the initial call. A value of `2` means up to 3 total attempts. Retries fire on no-answer, voicemail, busy, or transient dial failure. A connected call that hangs up is considered successful.
 </ParamField>
 
 <ParamField body="retry_intervals" type="number[]">
-  Array of wait times in minutes between retry attempts. The first value is the delay before the first retry, the second before the second retry, and so on. If the array is shorter than `max_retries`, the last interval is reused for remaining retries.
-
-  Example: `[5, 15, 60]` waits 5 minutes, then 15 minutes, then 60 minutes between attempts.
+  Wait times in **minutes** between attempts. The Nth retry waits `retry_intervals[N-1]` minutes after the previous attempt. If shorter than `max_retries`, the last value is reused.
 </ParamField>
 
 <ParamField body="scheduled_at" type="string">
-  ISO 8601 UTC timestamp to automatically start the campaign. If provided, the campaign status becomes `scheduled` and calling begins at the specified time. If omitted, the campaign must be started manually via the [resume action](/api-reference/campaigns/manage).
-
-  Example: `"2026-02-15T09:00:00Z"`. The scheduler checks every minute for due campaigns.
+  Future ISO 8601 UTC timestamp at which the campaign should auto-start. Sets the initial status to `scheduled` instead of `draft`. Example: `"2026-05-12T14:00:00Z"`.
 </ParamField>
+
+<ParamField body="business_hours" type="object">
+  Time-of-day / weekday gate for outbound dialing. Omit (or send `null`) for 24/7 dispatch. Validated server-side before the campaign is created.
+
+  <Expandable title="business_hours properties">
+    <ParamField body="tz" type="string" required>
+      IANA timezone (e.g. `"America/New_York"`, `"Europe/London"`).
+    </ParamField>
+    <ParamField body="days" type="number[]" required>
+      Allowed ISO weekdays — `1` = Monday … `7` = Sunday. Pick at least one.
+    </ParamField>
+    <ParamField body="windows" type="object[]" required>
+      One or more daily windows. Each is `{ start, end }` in **minutes since local midnight**. Constraints: `0 ≤ start < end ≤ 1440`. Cross-midnight windows aren't supported — split them into two windows on adjacent days.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<Note>
+  Outside `business_hours`, the campaign moves to `dormant` and resumes automatically when the next allowed window opens. You don't need to poll or restart it.
+</Note>
 
 ## Request
 
 <CodeGroup>
 
-```bash Minimal
-curl -X POST "https://api.verbeo.ai/campaigns/create" \
+```bash cURL
+curl -X POST "https://api.verbeo.ai/v1/campaign/create" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "campaign_name": "Quick Survey",
-    "phone_number": "+12629779611",
+    "campaign_name": "Q2 Sales Outreach",
     "agent_id": "550e8400-e29b-41d4-a716-446655440000",
-    "contacts": [
-      {"phone_number": "+1234567890", "contact_name": "Alice Johnson"},
-      {"phone_number": "+1987654321", "contact_name": "Bob Smith"}
-    ]
-  }'
-```
-
-```bash With retries and schedule
-curl -X POST "https://api.verbeo.ai/campaigns/create" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "campaign_name": "Q1 Sales Outreach",
-    "phone_number": "+12629779611",
-    "agent_id": "550e8400-e29b-41d4-a716-446655440000",
+    "phone_number_id": "f08d2c7b-7e22-4fbe-8a59-3b1cdec90112",
     "contacts": [
       {
-        "phone_number": "+1234567890",
-        "contact_name": "Jane Smith",
-        "custom_data": {
-          "company": "Acme Corp",
-          "position": "CEO",
-          "product_interest": "Enterprise Plan"
-        }
+        "phone_number": "+12125550001",
+        "contact_name": "Alice Johnson",
+        "custom_data": { "company": "Acme Corp", "tier": "gold" }
       },
-      {
-        "phone_number": "+1987654321",
-        "contact_name": "John Doe",
-        "custom_data": {
-          "company": "Tech Inc",
-          "position": "CTO"
-        }
-      }
+      { "phone_number": "+12125550002", "contact_name": "Bob Smith" }
     ],
     "max_retries": 2,
-    "retry_intervals": [10, 30],
-    "scheduled_at": "2026-02-15T14:00:00Z"
+    "retry_intervals": [5, 30],
+    "business_hours": {
+      "tz": "America/New_York",
+      "days": [1, 2, 3, 4, 5],
+      "windows": [{ "start": 540, "end": 1020 }]
+    }
   }'
 ```
 
 ```javascript Node.js
-const response = await fetch(
-  "https://api.verbeo.ai/campaigns/create",
-  {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer YOUR_API_KEY",
-      "Content-Type": "application/json",
+const res = await fetch("https://api.verbeo.ai/v1/campaign/create", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.VERBEO_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    campaign_name: "Q2 Sales Outreach",
+    agent_id: "550e8400-e29b-41d4-a716-446655440000",
+    phone_number_id: "f08d2c7b-7e22-4fbe-8a59-3b1cdec90112",
+    contacts: [
+      { phone_number: "+12125550001", contact_name: "Alice Johnson" },
+    ],
+    max_retries: 2,
+    retry_intervals: [5, 30],
+  }),
+});
+const { data } = await res.json();
+const campaignId = data.campaign_id;
+```
+
+```python Python
+import os, requests
+
+res = requests.post(
+    "https://api.verbeo.ai/v1/campaign/create",
+    headers={
+        "Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}",
+        "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      campaign_name: "Q1 Sales Outreach",
-      phone_number: "+12629779611",
-      agent_id: "550e8400-e29b-41d4-a716-446655440000",
-      contacts: [
-        {
-          phone_number: "+1234567890",
-          contact_name: "Jane Smith",
-          custom_data: { company: "Acme Corp" },
-        },
-      ],
-      max_retries: 2,
-      retry_intervals: [10, 30],
-    }),
-  }
-);
-const result = await response.json();
-const campaignId = result.data.campaign_id;
+    json={
+        "campaign_name": "Q2 Sales Outreach",
+        "agent_id": "550e8400-e29b-41d4-a716-446655440000",
+        "phone_number_id": "f08d2c7b-7e22-4fbe-8a59-3b1cdec90112",
+        "contacts": [
+            {"phone_number": "+12125550001", "contact_name": "Alice Johnson"},
+        ],
+        "max_retries": 2,
+        "retry_intervals": [5, 30],
+    },
+)
+campaign_id = res.json()["data"]["campaign_id"]
 ```
 
 </CodeGroup>
@@ -157,25 +160,25 @@ const campaignId = result.data.campaign_id;
 A successful request returns `201 Created`.
 
 <ResponseField name="success" type="boolean" required>
-  `true` when the campaign was created successfully.
+  `true` when the campaign was created.
 </ResponseField>
 
 <ResponseField name="data" type="object" required>
   <Expandable title="data properties">
     <ResponseField name="campaign_id" type="string" required>
-      UUID of the created campaign. Store this — you need it to manage the campaign.
+      UUID of the created campaign. Store this — you need it for every subsequent action.
     </ResponseField>
-    <ResponseField name="campaign_name" type="string" required>
-      Display name of the campaign.
-    </ResponseField>
+    <ResponseField name="campaign_name" type="string" required />
     <ResponseField name="status" type="string" required>
-      Initial status: `"draft"` (no `scheduled_at` provided) or `"scheduled"` (`scheduled_at` was provided).
+      `"draft"` (no `scheduled_at`) or `"scheduled"` (`scheduled_at` was provided).
     </ResponseField>
-    <ResponseField name="total_contacts" type="number" required>
-      Number of contacts in this campaign.
+    <ResponseField name="total_contacts" type="number" required />
+    <ResponseField name="business_hours" type="object | null">
+      Canonicalized config — days are deduped and sorted, windows sorted by start. `null` if not set (24/7 dispatch).
     </ResponseField>
+    <ResponseField name="scheduled_at" type="string | null" />
     <ResponseField name="created_at" type="string" required>
-      ISO 8601 timestamp of when the campaign was created.
+      ISO 8601 timestamp.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -191,74 +194,53 @@ A successful request returns `201 Created`.
   "success": true,
   "data": {
     "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
-    "campaign_name": "Q1 Sales Outreach",
+    "campaign_name": "Q2 Sales Outreach",
     "status": "draft",
     "total_contacts": 2,
-    "created_at": "2026-02-10T12:54:42.385543+00:00"
+    "business_hours": {
+      "tz": "America/New_York",
+      "days": [1, 2, 3, 4, 5],
+      "windows": [{ "start": 540, "end": 1020 }]
+    },
+    "scheduled_at": null,
+    "created_at": "2026-05-04T15:00:00.000Z"
   },
   "message": "Campaign created successfully"
 }
 ```
 
-## Campaign status lifecycle
-
-After creation, a campaign moves through these statuses:
-
-| Status | Description |
-|--------|-------------|
-| `draft` | Created but not started. Call the resume action to begin. |
-| `scheduled` | Will start automatically at `scheduled_at`. |
-| `in-progress` | Actively calling contacts. |
-| `paused` | Temporarily stopped. Resume to continue. |
-| `completed` | All contacts have been processed. |
-| `cancelled` | Archived. All pending contacts were cancelled. |
-
-## Contact status values
-
-Each contact within a campaign has its own status:
-
-| Status | Description |
-|--------|-------------|
-| `pending` | Waiting to be called |
-| `calling` | Call currently in progress |
-| `completed` | Successfully reached |
-| `failed` | Failed after all retry attempts |
-| `retry_scheduled` | Waiting for next retry attempt |
-| `no-answer` | No answer received |
-| `busy` | Line was busy |
-| `cancelled` | Contact cancelled (campaign was archived) |
-
 ## Using custom data in your agent
 
-Reference `custom_data` fields in your agent's system prompt using `{{key_name}}` syntax:
+Reference any field from `custom_data` (and `contact_name`) in your agent's system prompt using `{{key_name}}` syntax:
 
 ```
 You are calling {{contact_name}} from {{company}}.
-They are interested in {{product_interest}}.
-Be prepared to discuss our enterprise pricing.
+They are a {{tier}} customer. Be prepared to discuss their renewal options.
 ```
 
-The agent receives the resolved values at call time, enabling fully personalized conversations from a single campaign.
+Each contact gets a personalized call with their own values substituted.
 
 ## Error responses
 
-| Code | Status | Description |
-|------|--------|-------------|
-| `UNAUTHORIZED` | 401 | Invalid or missing API key |
-| `MISSING_FIELD` | 400 | Required field not provided |
-| `INVALID_PHONE_FORMAT` | 400 | Phone number not in E.164 format |
-| `PHONE_NOT_FOUND` | 404 | Phone number not found in workspace |
-| `AGENT_NOT_FOUND` | 404 | Agent not found in workspace |
-| `CREATE_FAILED` | 500 | Internal error creating campaign |
+| Code | Status | Cause |
+|---|---|---|
+| `MISSING_FIELD` | 400 | Required field not provided. |
+| `INVALID_CONTACT` | 400 | A contact entry is missing `phone_number`. |
+| `INVALID_BUSINESS_HOURS` | 400 | `business_hours` failed shape or value validation. The `error` message lists every issue (bad tz, empty days, overlapping windows, etc.). |
+| `UNAUTHORIZED` | 401 | Missing/invalid/expired/inactive API key. |
+| `PHONE_NOT_FOUND` | 404 | Phone UUID/E.164 isn't in your workspace. |
+| `AGENT_NOT_FOUND` | 404 | Agent UUID isn't in your workspace. |
+| `CREATE_FAILED` | 500 | Database error during campaign insert. Safe to retry. |
+| `CONTACTS_INSERT_FAILED` | 500 | Bulk contact insert failed. The campaign was rolled back. Safe to retry. |
 
 ```json
 {
   "success": false,
-  "error": "Agent not found",
+  "error": "Agent not found or does not belong to your workspace",
   "code": "AGENT_NOT_FOUND"
 }
 ```
 
 <Tip>
-  After creating a campaign in `draft` status, you must call the [resume action](/api-reference/campaigns/manage) to start calling. Campaigns do not start automatically unless `scheduled_at` is set.
+  After creating a campaign in `draft` status, call [`/campaign/resume`](/api-reference/campaigns/resume) to start dialing. Campaigns do not start automatically unless `scheduled_at` is set.
 </Tip>

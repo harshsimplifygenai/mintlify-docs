@@ -1,0 +1,137 @@
+---
+title: "POST /campaign/stats — Get campaign statistics"
+sidebarTitle: "Get stats"
+description: "Get the same data as /status plus a per-contact-status breakdown. Use this for dashboards and progress reports."
+---
+
+This is the heavier sibling of [`/campaign/status`](/api-reference/campaigns/status). It returns the full campaign record plus a tally of how many contacts are in each lifecycle state — useful for dashboards, progress reports, or post-mortems. For lightweight polling, use `/campaign/status` instead.
+
+## Endpoint
+
+```
+POST https://api.verbeo.ai/v1/campaign/stats
+```
+
+## Request body
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign.
+</ParamField>
+
+## Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://api.verbeo.ai/v1/campaign/stats" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" }'
+```
+
+```javascript Node.js
+const res = await fetch("https://api.verbeo.ai/v1/campaign/stats", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.VERBEO_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ campaign_id: "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" }),
+});
+const { data } = await res.json();
+console.log(data.contact_status_breakdown);
+```
+
+```python Python
+import os, requests
+
+res = requests.post(
+    "https://api.verbeo.ai/v1/campaign/stats",
+    headers={"Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}"},
+    json={"campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff"},
+)
+breakdown = res.json()["data"]["contact_status_breakdown"]
+```
+
+</CodeGroup>
+
+## Response
+
+A successful request returns `200 OK`. All fields from `/campaign/status` are included plus the new ones below.
+
+<ResponseField name="contact_status_breakdown" type="object" required>
+  Counts of contacts by current status. Six known buckets; unknown statuses are still counted defensively.
+
+  <Expandable title="breakdown properties">
+    <ResponseField name="pending" type="number" required>
+      Awaiting first dial.
+    </ResponseField>
+    <ResponseField name="calling" type="number" required>
+      Currently in an active call.
+    </ResponseField>
+    <ResponseField name="completed" type="number" required>
+      Reached a terminal success state.
+    </ResponseField>
+    <ResponseField name="failed" type="number" required>
+      Permanent failure (all retries exhausted).
+    </ResponseField>
+    <ResponseField name="retry_scheduled" type="number" required>
+      Awaiting next retry attempt.
+    </ResponseField>
+    <ResponseField name="cancelled" type="number" required>
+      Cancelled by archive or business rule.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="max_retries" type="number" required>
+  Configured maximum retry attempts per contact.
+</ResponseField>
+
+<ResponseField name="retry_intervals" type="number[]" required>
+  Configured wait times in minutes between retry attempts.
+</ResponseField>
+
+All other fields (`campaign_id`, `campaign_name`, `status`, `total_contacts`, `completed_calls`, `successful_calls`, `failed_calls`, `started_at`, `business_hours`, `completed_at`, `scheduled_at`, `created_at`, `updated_at`) match `/campaign/status`.
+
+### Example response
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+    "campaign_name": "Q2 Sales Outreach",
+    "status": "in-progress",
+    "total_contacts": 250,
+    "completed_calls": 87,
+    "successful_calls": 64,
+    "failed_calls": 23,
+    "contact_status_breakdown": {
+      "pending": 142,
+      "calling": 21,
+      "completed": 64,
+      "failed": 23,
+      "retry_scheduled": 0,
+      "cancelled": 0
+    },
+    "started_at": "2026-05-04T15:05:00.000Z",
+    "business_hours": null,
+    "completed_at": null,
+    "scheduled_at": null,
+    "max_retries": 2,
+    "retry_intervals": [5, 30],
+    "created_at": "2026-05-04T15:00:00.000Z",
+    "updated_at": "2026-05-04T15:32:11.000Z"
+  }
+}
+```
+
+## Error responses
+
+| Code | Status | Cause |
+|---|---|---|
+| `MISSING_FIELD` | 400 | `campaign_id` not provided. |
+| `UNAUTHORIZED` | 401 | Missing/invalid API key. |
+| `CAMPAIGN_NOT_FOUND` | 404 | Campaign UUID isn't in your workspace. |
+| `STATS_FAILED` | 500 | Could not aggregate contact stats. Safe to retry. |

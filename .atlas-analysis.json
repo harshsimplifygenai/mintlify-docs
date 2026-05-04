@@ -81,7 +81,12 @@
             "group": "Campaigns",
             "pages": [
               "api-reference/campaigns/create",
-              "api-reference/campaigns/manage"
+              "api-reference/campaigns/status",
+              "api-reference/campaigns/stats",
+              "api-reference/campaigns/update",
+              "api-reference/campaigns/pause",
+              "api-reference/campaigns/resume",
+              "api-reference/campaigns/archive"
             ]
           },
           {
@@ -118,10 +123,13 @@
     "POST https://api.verbeo.ai/calls",
     "GET https://api.verbeo.ai/calls",
     "GET https://api.verbeo.ai/calls?callId={id}",
-    "POST /campaigns/create",
-    "POST /campaigns/resume",
-    "POST /campaigns/pause",
-    "POST /campaigns/cancel",
+    "POST https://api.verbeo.ai/v1/campaign/create",
+    "POST https://api.verbeo.ai/v1/campaign/status",
+    "POST https://api.verbeo.ai/v1/campaign/stats",
+    "POST https://api.verbeo.ai/v1/campaign/update",
+    "POST https://api.verbeo.ai/v1/campaign/pause",
+    "POST https://api.verbeo.ai/v1/campaign/resume",
+    "POST https://api.verbeo.ai/v1/campaign/archive",
     "Webhook event: call_started",
     "Webhook event: call_ended",
     "Webhook event: call_analyzed",

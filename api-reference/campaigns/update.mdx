@@ -1,0 +1,140 @@
+---
+title: "POST /campaign/update — Update campaign settings"
+sidebarTitle: "Update campaign"
+description: "Update name, retry config, schedule, or business hours on a campaign that is not currently dialing. Pause first if the campaign is running."
+---
+
+Use this endpoint to change a campaign's configuration before it starts or while it's paused. To edit a live campaign, [pause](/api-reference/campaigns/pause) it first, update, then [resume](/api-reference/campaigns/resume).
+
+<Note>
+  Updates are only allowed when the campaign's status is in `{draft, scheduled, paused}`. Otherwise the call returns `400 INVALID_STATUS`.
+</Note>
+
+## Endpoint
+
+```
+POST https://api.verbeo.ai/v1/campaign/update
+```
+
+## Request body
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign.
+</ParamField>
+
+<ParamField body="campaign_name" type="string">
+  New display name.
+</ParamField>
+
+<ParamField body="max_retries" type="number">
+  New retry count.
+</ParamField>
+
+<ParamField body="retry_intervals" type="number[]">
+  New retry wait times (in minutes).
+</ParamField>
+
+<ParamField body="scheduled_at" type="string">
+  Future ISO 8601 UTC timestamp. Setting this on a `draft` campaign promotes it to `scheduled`.
+</ParamField>
+
+<ParamField body="business_hours" type="object | null">
+  New `business_hours` config (same shape as `/campaign/create`), or explicit `null` to clear it (resume 24/7 dispatch). Validated server-side.
+</ParamField>
+
+At least one mutable field is required. A body with only `campaign_id` returns `400 NO_UPDATES`.
+
+## Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://api.verbeo.ai/v1/campaign/update" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+    "campaign_name": "Q2 Sales Outreach — v2",
+    "max_retries": 3,
+    "retry_intervals": [5, 30, 120]
+  }'
+```
+
+```javascript Node.js
+await fetch("https://api.verbeo.ai/v1/campaign/update", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.VERBEO_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    campaign_id: "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+    max_retries: 3,
+  }),
+});
+```
+
+```python Python
+import os, requests
+
+requests.post(
+    "https://api.verbeo.ai/v1/campaign/update",
+    headers={"Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}"},
+    json={
+        "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+        "max_retries": 3,
+    },
+)
+```
+
+</CodeGroup>
+
+## Response
+
+A successful request returns `200 OK`.
+
+<ResponseField name="data" type="object" required>
+  <Expandable title="data properties">
+    <ResponseField name="campaign_id" type="string" required />
+    <ResponseField name="campaign_name" type="string" required />
+    <ResponseField name="status" type="string" required />
+    <ResponseField name="max_retries" type="number" required />
+    <ResponseField name="retry_intervals" type="number[]" required />
+    <ResponseField name="scheduled_at" type="string | null" />
+    <ResponseField name="business_hours" type="object | null" />
+    <ResponseField name="updated_at" type="string" required />
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="message" type="string" required />
+
+### Example response
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+    "campaign_name": "Q2 Sales Outreach — v2",
+    "status": "draft",
+    "max_retries": 3,
+    "retry_intervals": [5, 30, 120],
+    "scheduled_at": null,
+    "business_hours": null,
+    "updated_at": "2026-05-04T15:40:00.000Z"
+  },
+  "message": "Campaign updated successfully"
+}
+```
+
+## Error responses
+
+| Code | Status | Cause |
+|---|---|---|
+| `MISSING_FIELD` | 400 | `campaign_id` not provided. |
+| `INVALID_STATUS` | 400 | Campaign is currently running. Pause first, then update, then resume. |
+| `NO_UPDATES` | 400 | Body had only `campaign_id` — nothing to change. |
+| `INVALID_BUSINESS_HOURS` | 400 | `business_hours` failed validation. |
+| `UNAUTHORIZED` | 401 | Missing/invalid API key. |
+| `CAMPAIGN_NOT_FOUND` | 404 | Campaign UUID isn't in your workspace. |
+| `UPDATE_FAILED` | 500 | Database error. Safe to retry. |

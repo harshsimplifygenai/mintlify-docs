@@ -3,13 +3,24 @@
   "name": "Verbeo",
   "theme": "luma",
   "favicon": "https://media.brand.dev/207ca963-796a-45b4-a45d-c982a019326e.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
   "colors": {
     "primary": "#4464fc"
   },
   "navbar": {
+    "links": [
+      {
+        "label": "Support",
+        "href": "mailto:support@verbeo.ai"
+      }
+    ],
     "primary": {
-      "type": "github",
-      "href": "https://github.com/harshsimplifygenai/verbeo-staging"
+      "type": "button",
+      "label": "Dashboard",
+      "href": "https://app.verbeo.ai"
     }
   },
   "navigation": {
@@ -87,7 +98,12 @@
             "group": "Campaigns",
             "pages": [
               "api-reference/campaigns/create",
-              "api-reference/campaigns/manage"
+              "api-reference/campaigns/status",
+              "api-reference/campaigns/stats",
+              "api-reference/campaigns/update",
+              "api-reference/campaigns/pause",
+              "api-reference/campaigns/resume",
+              "api-reference/campaigns/archive"
             ]
           },
           {
