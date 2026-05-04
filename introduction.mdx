@@ -1,0 +1,48 @@
+---
+title: "What is Verbeo?"
+description: "Verbeo is an AI voice agent platform for building, deploying, and managing intelligent phone agents for inbound, outbound, and batch calling."
+---
+
+Verbeo is an AI voice agent platform that lets you build and deploy intelligent phone agents in minutes. Whether you need to handle inbound support calls, run large-scale outbound campaigns, or automate routine phone interactions, Verbeo gives you a simple REST API and dashboard to configure, launch, and monitor agents at scale — without managing telephony infrastructure.
+
+## What you can build
+
+<CardGroup cols={2}>
+  <Card title="AI phone agents" icon="robot">
+    Create agents with custom voices, system prompts, and behaviors. Each agent handles real phone conversations powered by Google Gemini's real-time audio model.
+  </Card>
+  <Card title="Outbound calling" icon="phone-outgoing">
+    Trigger individual outbound calls programmatically via the API. Pass dynamic variables at call time to personalize each conversation.
+  </Card>
+  <Card title="Batch campaigns" icon="list">
+    Dial hundreds or thousands of contacts from a single campaign. Configure retry logic, scheduling, and per-contact variables.
+  </Card>
+  <Card title="Post-call analytics" icon="chart-bar">
+    Define structured fields you want extracted from every call — customer sentiment, issue resolution, appointment details — and get them back as JSON after each conversation ends.
+  </Card>
+  <Card title="Custom tools" icon="wrench">
+    Connect your own backend to agents via HTTP tool calls. Agents can look up records, submit forms, or fetch live data mid-call.
+  </Card>
+  <Card title="Knowledge base" icon="database">
+    Upload documents and attach them to agents so they can answer questions directly from your content during a call.
+  </Card>
+</CardGroup>
+
+## How it works
+
+Every interaction on Verbeo is built around three core resources: **agents**, **phone numbers**, and **calls**.
+
+An agent is the AI entity you configure — it holds the system prompt, voice, tools, and call settings. A phone number is the caller ID your agent uses when placing outbound calls or receiving inbound calls. A call is a single phone conversation, with a full transcript, duration, status, and optional analysis data attached after it ends.
+
+You manage all three through the Verbeo dashboard or directly through the REST API at `https://api.verbeo.ai`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Create your first agent and make an outbound call in under 5 minutes.
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Learn how to generate and use API keys to authenticate your requests.
+  </Card>
+</CardGroup>

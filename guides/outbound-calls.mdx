@@ -1,0 +1,141 @@
+---
+title: "Make outbound calls with your agent"
+description: "Trigger a single outbound call via the Verbeo API using your private key, agent ID, and provisioned number — with support for dynamic variables."
+---
+
+Once you have an agent configured, you can dial any phone number programmatically with a single API call. You pass the destination number, your provisioned caller ID, the agent that should handle the call, and any dynamic variables you want the agent to use during the conversation. Verbeo queues the call, connects the agent, and fires webhook events as the call progresses.
+
+## Prerequisites
+
+Before making your first call, confirm you have the following:
+
+- A **private API key** — keys with the `vbr_` prefix. Public keys (`vbr_pub_`) cannot initiate calls.
+- An **agent ID** — the UUID from the agent you created in the dashboard or via the [Agents API](/api-reference/agents/create).
+- A **provisioned phone number** — your Verbeo caller ID in E.164 format (e.g. `+15550001234`). Find yours under **Settings → Phone Numbers**.
+
+<Warning>
+  Always use your private API key (`vbr_...`) for the Calls API. Using a public key (`vbr_pub_...`) returns `401 Unauthorized`. Never expose your private key in client-side code or public repositories.
+</Warning>
+
+## Initiate a call
+
+Send a `POST` request to `https://api.verbeo.ai/calls` with the required fields in the JSON body.
+
+### Required fields
+
+| Field | Type | Description |
+|---|---|---|
+| `toNumber` | string | The number you are calling, in E.164 format (e.g. `+12125551234`) |
+| `agentId` | string | UUID of the agent that will handle the call |
+| `fromNumber` | string | Your provisioned Verbeo number in E.164 format |
+
+### Optional fields
+
+| Field | Type | Description |
+|---|---|---|
+| `dynamicVariables` | object | Key-value pairs substituted into `{{variable_name}}` placeholders in the agent's system prompt |
+
+### Example request
+
+<CodeGroup>
+
+```bash With dynamic variables
+curl -X POST "https://api.verbeo.ai/calls" \
+  -H "Authorization: Bearer vbr_your_private_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "toNumber": "+12125551234",
+    "agentId": "550e8400-e29b-41d4-a716-446655440000",
+    "fromNumber": "+15550001234",
+    "dynamicVariables": {
+      "customer_name": "Sarah Chen",
+      "order_id": "ORD-98432",
+      "order_status": "out for delivery"
+    }
+  }'
+```
+
+```bash Minimal (no dynamic variables)
+curl -X POST "https://api.verbeo.ai/calls" \
+  -H "Authorization: Bearer vbr_your_private_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "toNumber": "+12125551234",
+    "agentId": "550e8400-e29b-41d4-a716-446655440000",
+    "fromNumber": "+15550001234"
+  }'
+```
+
+</CodeGroup>
+
+### Success response
+
+A `201 Created` response confirms the call is queued. The agent will begin dialing within seconds.
+
+```json
+{
+  "success": true,
+  "callId": "772g0622-g41d-63f6-c938-668877662222",
+  "callSid": "CAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "status": "queued",
+  "toNumber": "+12125551234",
+  "fromNumber": "+15550001234",
+  "agentId": "550e8400-e29b-41d4-a716-446655440000",
+  "agentName": "Customer Support Agent",
+  "message": "Outbound call initiated successfully"
+}
+```
+
+Save the `callId` — it is the stable identifier for this call across all webhook events and the call history API.
+
+## Using dynamic variables
+
+Dynamic variables let you personalize the agent's behavior for each call without creating separate agents. Pass any key-value pairs in the `dynamicVariables` object, then reference them in your agent's system prompt using double-curly-brace syntax.
+
+**In your agent's system prompt:**
+
+```text
+You are calling {{customer_name}} regarding order {{order_id}},
+which is currently {{order_status}}.
+
+Begin by confirming their identity, then update them on their order.
+```
+
+**In your API request:**
+
+```json
+{
+  "dynamicVariables": {
+    "customer_name": "Sarah Chen",
+    "order_id": "ORD-98432",
+    "order_status": "out for delivery"
+  }
+}
+```
+
+The agent greets Sarah by name, references the correct order number, and knows the current status — all without any hardcoded information in the prompt.
+
+<Tip>
+  Variable names are case-sensitive and must match exactly between your prompt and your API request. `{{customer_name}}` will not match `dynamicVariables.CustomerName`.
+</Tip>
+
+## Error codes
+
+| Status | Meaning | Action |
+|---|---|---|
+| `400` | Missing required fields | Include `toNumber`, `agentId`, and `fromNumber` in the request body |
+| `401` | Invalid or public API key | Use a private key (`vbr_...`), not a public key (`vbr_pub_...`) |
+| `402` | Insufficient balance | Add credits to your workspace under **Settings → Billing** |
+| `403` | Account paused | Your billing is paused — contact [support@verbeo.ai](mailto:support@verbeo.ai) |
+| `404` | Agent or number not found | Confirm the `agentId` and `fromNumber` belong to your workspace |
+| `429` | Concurrency limit reached | Too many active calls — wait for calls to complete or upgrade your plan |
+| `502` | Telephony error | Twilio failed to initiate the call — retry after a brief delay |
+
+## Tracking call outcomes
+
+After the call ends, Verbeo fires webhook events to the `webhookUrl` you set on the agent:
+
+- **`call_ended`** fires within seconds of disconnect and includes duration and disconnection reason.
+- **`call_analyzed`** fires 20–30 seconds later with the full transcript, summary, and any extracted fields you configured.
+
+See the [Webhooks guide](/guides/webhooks) for the full event reference and an example handler.

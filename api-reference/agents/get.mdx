@@ -1,0 +1,162 @@
+---
+title: "GET /agents — Get agent by ID"
+sidebarTitle: "Get agent"
+description: "Retrieve a single AI voice agent by its ID. Returns the full configuration, SIP details, and metadata for the specified agent."
+---
+
+Use this endpoint when you need the full details of a specific agent — its current configuration, native tool settings, post-call analysis schema, and SIP credentials if applicable. To retrieve all agents in your workspace at once, use the [List agents](/api-reference/agents/list) endpoint.
+
+## Endpoint
+
+```
+GET https://api.verbeo.ai/agents?agentId={agentId}
+```
+
+## Query parameters
+
+<ParamField query="agentId" type="string" required>
+  UUID of the agent to retrieve.
+</ParamField>
+
+## Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "https://api.verbeo.ai/agents?agentId=550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json"
+```
+
+```javascript Node.js
+const agentId = "550e8400-e29b-41d4-a716-446655440000";
+const response = await fetch(
+  `https://api.verbeo.ai/agents?agentId=${agentId}`,
+  {
+    headers: {
+      Authorization: "Bearer YOUR_API_KEY",
+    },
+  }
+);
+const agent = await response.json();
+```
+
+```python Python
+import requests
+
+agent_id = "550e8400-e29b-41d4-a716-446655440000"
+response = requests.get(
+    f"https://api.verbeo.ai/agents?agentId={agent_id}",
+    headers={"Authorization": "Bearer YOUR_API_KEY"},
+)
+agent = response.json()
+```
+
+</CodeGroup>
+
+## Response
+
+A successful request returns `200 OK` with a single agent object.
+
+<ResponseField name="id" type="string" required>
+  UUID of the agent.
+</ResponseField>
+
+<ResponseField name="workspace_id" type="string" required>
+  UUID of the workspace that owns this agent.
+</ResponseField>
+
+<ResponseField name="agent_name" type="string" required>
+  Display name of the agent.
+</ResponseField>
+
+<ResponseField name="created_at" type="string" required>
+  ISO 8601 timestamp of when the agent was created.
+</ResponseField>
+
+<ResponseField name="updated_at" type="string" required>
+  ISO 8601 timestamp of the last update.
+</ResponseField>
+
+<ResponseField name="config" type="object" required>
+  Full configuration object including `systemPrompt`, `voice`, `toolIds`, `fileSearchStoreIds`, `nativeTools`, and `settings`.
+</ResponseField>
+
+<ResponseField name="sip_uri" type="string">
+  Full SIP URI. Only present when SIP was enabled for this agent.
+</ResponseField>
+
+<ResponseField name="twilio_sip_username" type="string">
+  SIP username. Only present when SIP was enabled.
+</ResponseField>
+
+<ResponseField name="twilio_sip_domain" type="string">
+  SIP domain. Use this value (without the `sip:` prefix) to append dynamic variables as query parameters when dialing via SIP. Only present when SIP was enabled.
+</ResponseField>
+
+<ResponseField name="twilio_sip_credential_sid" type="string">
+  Twilio credential SID. Only present when SIP was enabled.
+</ResponseField>
+
+<ResponseField name="twilio_sip_credential_list_sid" type="string">
+  Twilio credential list SID. Only present when SIP was enabled.
+</ResponseField>
+
+<ResponseField name="twilio_sip_domain_sid" type="string">
+  Twilio domain SID. Only present when SIP was enabled.
+</ResponseField>
+
+### Example response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
+  "agent_name": "Customer Support Agent",
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z",
+  "config": {
+    "systemPrompt": "You are a helpful customer support agent for a tech company.",
+    "voice": { "voiceId": "Zephyr" },
+    "toolIds": [],
+    "fileSearchStoreIds": [],
+    "nativeTools": {
+      "end_call": { "enabled": true },
+      "send_sms": { "enabled": true, "smsContentType": "prompt" }
+    },
+    "settings": {
+      "initialMessage": { "enabled": true },
+      "maxCallDuration": 600,
+      "endCallOnSilence": true,
+      "silenceTimeoutMinutes": 5,
+      "voicemailDetection": { "enabled": true, "action": "hangup" },
+      "webhookUrl": "https://your-server.example.com/verbeo-events",
+      "postCallAnalysis": {
+        "enabled": true,
+        "fields": [
+          {
+            "name": "issue_resolved",
+            "description": "Whether the customer issue was fully resolved",
+            "type": "boolean",
+            "required": true
+          }
+        ]
+      }
+    }
+  },
+  "sip_uri": "sip:verbeo-ai-5eebc895@verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com",
+  "twilio_sip_username": "verbeo-ai-5eebc895",
+  "twilio_sip_domain": "verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com",
+  "twilio_sip_credential_sid": "CRxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "twilio_sip_credential_list_sid": "CLxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "twilio_sip_domain_sid": "SDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+## Error responses
+
+| Status | Description |
+|--------|-------------|
+| `401` | Invalid or missing API key |
+| `404` | Agent not found — verify the `agentId` belongs to your workspace |
+| `500` | Internal server error |

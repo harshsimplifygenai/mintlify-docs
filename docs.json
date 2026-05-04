@@ -1,0 +1,104 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Verbeo",
+  "theme": "luma",
+  "favicon": "https://media.brand.dev/207ca963-796a-45b4-a45d-c982a019326e.svg",
+  "colors": {
+    "primary": "#4464fc"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/harshsimplifygenai/verbeo-staging"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/agents",
+              "concepts/phone-numbers",
+              "concepts/calls",
+              "concepts/knowledge-base"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/build-your-first-agent",
+              "guides/outbound-calls",
+              "guides/batch-campaigns",
+              "guides/custom-tools",
+              "guides/post-call-analysis",
+              "guides/webhooks"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/voice-selection",
+              "features/sip-uri",
+              "features/analytics"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/overview",
+              "api-reference/authentication"
+            ]
+          },
+          {
+            "group": "Agents",
+            "pages": [
+              "api-reference/agents/create",
+              "api-reference/agents/list",
+              "api-reference/agents/get",
+              "api-reference/agents/update",
+              "api-reference/agents/delete"
+            ]
+          },
+          {
+            "group": "Calls",
+            "pages": [
+              "api-reference/calls/initiate",
+              "api-reference/calls/list",
+              "api-reference/calls/get"
+            ]
+          },
+          {
+            "group": "Campaigns",
+            "pages": [
+              "api-reference/campaigns/create",
+              "api-reference/campaigns/manage"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "api-reference/webhooks/events",
+              "api-reference/webhooks/tool-calls"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

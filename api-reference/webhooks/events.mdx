@@ -1,0 +1,330 @@
+---
+title: "Webhook events"
+description: "Reference for the three call lifecycle webhook events: call_started, call_ended, and call_analyzed. Includes exact payload shapes and field-level notes."
+---
+
+Verbeo delivers real-time webhook events to the URL configured in your agent's `config.settings.webhookUrl`. When a call is placed or received using that agent, Verbeo sends HTTP POST requests at key points in the call lifecycle. All requests use `Content-Type: application/json`.
+
+There are three call lifecycle events. They always fire in order for any given call, though the timing between them varies.
+
+| Event | When it fires |
+|-------|--------------|
+| `call_started` | Immediately after the call is answered |
+| `call_ended` | Immediately when the call disconnects |
+| `call_analyzed` | 5–30 seconds after `call_ended`, once transcription and AI analysis are complete |
+
+Every event payload includes `call_id` and `agent_id` so a single webhook consumer can correlate all three events for the same call.
+
+<Tip>
+  Treat every incoming webhook as idempotent. Network issues can cause a delivery to be retried with the same `call_id`. Use the `call_id` field as a deduplication key.
+</Tip>
+
+## Configuring your webhook URL
+
+Set the `webhookUrl` field in your agent's configuration:
+
+```bash
+curl -X PATCH "https://api.verbeo.ai/agents?agentId=YOUR_AGENT_ID" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {
+      "settings": {
+        "webhookUrl": "https://your-server.example.com/verbeo-events"
+      }
+    }
+  }'
+```
+
+---
+
+## `call_started`
+
+Fires once, immediately after the call is answered. Use this event to start any real-time tracking or alerting for active calls.
+
+### Payload
+
+```json
+{
+  "event": "call_started",
+  "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+  "agent_id": "agent_f3a2b1c4e5d6",
+  "timestamp": "2026-04-17T11:03:15.000Z",
+  "payload": {
+    "status": "started",
+    "start_time": "2026-04-17T11:03:15.000Z",
+    "call_type": "outbound",
+    "from_number": "+34912345678",
+    "to_number": "+14155551234",
+    "dynamic_variables": {
+      "customer_name": "Juan Pérez",
+      "plan": "premium"
+    }
+  }
+}
+```
+
+### Fields
+
+<ResponseField name="event" type="string" required>
+  Always `"call_started"`.
+</ResponseField>
+
+<ResponseField name="call_id" type="string" required>
+  Verbeo UUID for this call. Use this to correlate with `call_ended` and `call_analyzed` events.
+</ResponseField>
+
+<ResponseField name="agent_id" type="string" required>
+  UUID of the agent handling the call.
+</ResponseField>
+
+<ResponseField name="timestamp" type="string" required>
+  ISO 8601 timestamp of when the event was emitted.
+</ResponseField>
+
+<ResponseField name="payload.status" type="string" required>
+  `"started"`.
+</ResponseField>
+
+<ResponseField name="payload.start_time" type="string" required>
+  ISO 8601 timestamp of when the call was answered.
+</ResponseField>
+
+<ResponseField name="payload.call_type" type="string" required>
+  `"inbound"`, `"outbound"`, or `"web"`.
+</ResponseField>
+
+<ResponseField name="payload.from_number" type="string">
+  Originating phone number in E.164 format. `null` for web calls.
+</ResponseField>
+
+<ResponseField name="payload.to_number" type="string">
+  Destination phone number in E.164 format. `null` for web calls.
+</ResponseField>
+
+<ResponseField name="payload.dynamic_variables" type="object">
+  Key-value pairs passed at call initiation. Empty object `{}` if none were provided.
+</ResponseField>
+
+---
+
+## `call_ended`
+
+Fires once, immediately when the call disconnects. The transcript and analysis data are not yet available at this point — those arrive with `call_analyzed`.
+
+### Payload
+
+```json
+{
+  "event": "call_ended",
+  "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+  "agent_id": "agent_f3a2b1c4e5d6",
+  "timestamp": "2026-04-17T11:06:42.000Z",
+  "payload": {
+    "status": "completed",
+    "call_type": "outbound",
+    "from_number": "+34912345678",
+    "to_number": "+14155551234",
+    "start_time": "2026-04-17T11:03:15.000Z",
+    "end_time": "2026-04-17T11:06:42.000Z",
+    "duration": 207,
+    "cost": 12,
+    "disconnection_reason": "user_hangup",
+    "dynamic_variables": {
+      "customer_name": "Juan Pérez",
+      "plan": "premium"
+    }
+  }
+}
+```
+
+### Fields
+
+<ResponseField name="event" type="string" required>
+  Always `"call_ended"`.
+</ResponseField>
+
+<ResponseField name="payload.status" type="string" required>
+  Final call status, typically `"completed"`.
+</ResponseField>
+
+<ResponseField name="payload.start_time" type="string" required>
+  ISO 8601 timestamp of when the call was answered.
+</ResponseField>
+
+<ResponseField name="payload.end_time" type="string" required>
+  ISO 8601 timestamp of when the call disconnected.
+</ResponseField>
+
+<ResponseField name="payload.duration" type="number" required>
+  Call duration in seconds.
+</ResponseField>
+
+<ResponseField name="payload.cost" type="number" required>
+  Cost in cents, derived from your workspace's usage rate per minute.
+</ResponseField>
+
+<ResponseField name="payload.disconnection_reason" type="string" required>
+  How the call ended. Possible values: `user_hangup`, `agent_hangup`, `completed`, `timeout`, `error`.
+</ResponseField>
+
+---
+
+## `call_analyzed`
+
+Fires 5–30 seconds after `call_ended`, once transcription and AI post-call analysis are complete. This event carries the full call record including the conversation transcript, AI summary, structured analysis fields, and recording URL.
+
+### Payload
+
+```json
+{
+  "event": "call_analyzed",
+  "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+  "agent_id": "agent_f3a2b1c4e5d6",
+  "timestamp": "2026-04-17T11:07:05.000Z",
+  "payload": {
+    "status": "analyzed",
+    "data": {
+      "id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+      "workspace_id": "789e0123-e45b-67c8-d901-234567890123",
+      "agent_id": "agent_f3a2b1c4e5d6",
+      "call_type": "outbound",
+      "from_number": "+34912345678",
+      "to_number": "+14155551234",
+      "status": "completed",
+      "duration": 207,
+      "started_at": "2026-04-17T11:03:15.000Z",
+      "ended_at": "2026-04-17T11:06:42.000Z",
+      "disconnection_reason": "user_hangup",
+      "recording_url": "https://recordings.verbeo.ai/b7a3c1e4_20260417_110315.wav",
+      "cost": 12,
+      "transcript": [
+        {
+          "role": "agent",
+          "content": "Hello, how can I help you today?",
+          "timestamp": "2026-04-17T11:03:18.000Z"
+        },
+        {
+          "role": "user",
+          "content": "I'd like to check on my order.",
+          "timestamp": "2026-04-17T11:03:22.123Z"
+        },
+        {
+          "role": "tool",
+          "tool_name": "check_order_status",
+          "query": "{\"order_id\":\"ORD-12345\"}",
+          "status_code": 200,
+          "result": {"status": "shipped", "eta": "tomorrow"},
+          "error": null,
+          "documents": [],
+          "timestamp": "2026-04-17T11:03:45.200Z"
+        },
+        {
+          "role": "agent",
+          "content": "Your order ships tomorrow.",
+          "timestamp": "2026-04-17T11:03:50.000Z"
+        }
+      ],
+      "transcript_clean": [
+        {
+          "role": "agent",
+          "content": "Hello, how can I help you today?",
+          "timestamp": "2026-04-17T11:03:18.000Z"
+        },
+        {
+          "role": "user",
+          "content": "I'd like to check on my order.",
+          "timestamp": "2026-04-17T11:03:22.123Z"
+        },
+        {
+          "role": "agent",
+          "content": "Your order ships tomorrow.",
+          "timestamp": "2026-04-17T11:03:50.000Z"
+        }
+      ],
+      "summary": "Customer asked about order ORD-12345. Agent confirmed it ships tomorrow.",
+      "analysis_data": {
+        "issue_resolved": true,
+        "follow_up_required": false
+      },
+      "dynamic_variables": {
+        "customer_name": "Juan Pérez",
+        "plan": "premium"
+      },
+      "tools": [
+        {
+          "tool_name": "check_order_status",
+          "tool_type": "custom",
+          "description": "check_order_status executed (HTTP 200)",
+          "args": {"order_id": "ORD-12345"},
+          "result": {"status": "shipped", "eta": "tomorrow"},
+          "error": null,
+          "executed_at": "2026-04-17T11:03:45.200Z"
+        }
+      ]
+    }
+  }
+}
+```
+
+### Fields
+
+<ResponseField name="payload.status" type="string" required>
+  Always `"analyzed"`.
+</ResponseField>
+
+<ResponseField name="payload.data" type="object" required>
+  Complete call record.
+
+  <Expandable title="data properties">
+    <ResponseField name="payload.data.transcript" type="object[]" required>
+      Interleaved array of all turns in chronological order, including agent turns, user turns, and tool invocations. Each entry has `role`, `content` (or tool fields), and `timestamp`.
+    </ResponseField>
+    <ResponseField name="payload.data.transcript_clean" type="object[]" required>
+      Same as `transcript` but with tool entries removed. Contains only `agent` and `user` turns — useful for rendering a readable conversation view.
+    </ResponseField>
+    <ResponseField name="payload.data.summary" type="string" required>
+      AI-generated natural language summary of the call.
+    </ResponseField>
+    <ResponseField name="payload.data.analysis_data" type="object" required>
+      Structured fields extracted by post-call analysis. The keys match the field names you configured on the agent.
+    </ResponseField>
+    <ResponseField name="payload.data.recording_url" type="string">
+      URL to the call recording audio file. Download and store the recording in your own system if you need it long-term, as URLs may expire.
+    </ResponseField>
+    <ResponseField name="payload.data.cost" type="number">
+      Cost in cents.
+    </ResponseField>
+    <ResponseField name="payload.data.tools" type="object[]">
+      Detailed log of each tool invocation during the call, including the arguments passed and the result or error returned.
+    </ResponseField>
+    <ResponseField name="payload.data.dynamic_variables" type="object">
+      Dynamic variables that were active during this call.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Responding to webhook events
+
+Your webhook endpoint must return an HTTP `2xx` status code within a reasonable timeout. No specific response body is required for call lifecycle events.
+
+```javascript
+// Express.js example
+app.post("/verbeo-events", (req, res) => {
+  const { event, call_id, agent_id, payload } = req.body;
+
+  if (event === "call_analyzed") {
+    const { summary, analysis_data, transcript_clean } = payload.data;
+    // Process the completed call data
+    saveCallRecord({ call_id, summary, analysis_data, transcript_clean });
+  }
+
+  res.sendStatus(200);
+});
+```
+
+<Warning>
+  Schema changes to webhook payloads are additive. New fields may appear in future releases without notice. Fields documented here will not be removed or renamed without a breaking-change notice.
+</Warning>

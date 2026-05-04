@@ -1,0 +1,161 @@
+---
+title: "PATCH /agents — Update agent"
+sidebarTitle: "Update agent"
+description: "Update the configuration of an existing AI voice agent. All fields are optional — only the fields you provide are changed."
+---
+
+Use this endpoint to modify an agent's name, system prompt, voice, tools, or any other configuration field without recreating the agent. The update is a partial merge: fields you omit remain unchanged. To replace a native tool configuration entirely, pass the new object; to see all available fields, refer to the [Create agent](/api-reference/agents/create) reference.
+
+## Endpoint
+
+```
+PATCH https://api.verbeo.ai/agents?agentId={agentId}
+```
+
+## Query parameters
+
+<ParamField query="agentId" type="string" required>
+  UUID of the agent to update.
+</ParamField>
+
+## Request body
+
+All fields are optional. The request body accepts the same structure as [Create agent](/api-reference/agents/create). Only provide the fields you want to change.
+
+<ParamField body="agentName" type="string">
+  New display name for the agent.
+</ParamField>
+
+<ParamField body="config" type="object">
+  Configuration fields to update. You may update any combination of sub-fields. Omitted sub-fields are left unchanged.
+
+  <Expandable title="config properties">
+    <ParamField body="config.systemPrompt" type="string">
+      New system prompt. Replaces the existing prompt entirely.
+    </ParamField>
+    <ParamField body="config.voice.voiceId" type="string">
+      New voice identifier.
+    </ParamField>
+    <ParamField body="config.toolIds" type="string[]">
+      Replaces the full list of custom tool UUIDs attached to this agent.
+    </ParamField>
+    <ParamField body="config.fileSearchStoreIds" type="string[]">
+      Replaces the full list of knowledge base store UUIDs.
+    </ParamField>
+    <ParamField body="config.nativeTools" type="object">
+      Native tool configurations to update. Pass `null` for a tool key to disable that tool.
+    </ParamField>
+    <ParamField body="config.settings" type="object">
+      Runtime settings to update. Only the fields you provide are changed.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Request
+
+<CodeGroup>
+
+```bash Update name and voice
+curl -X PATCH "https://api.verbeo.ai/agents?agentId=550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "Updated Support Agent",
+    "config": {
+      "voice": { "voiceId": "Puck" }
+    }
+  }'
+```
+
+```bash Update webhook URL
+curl -X PATCH "https://api.verbeo.ai/agents?agentId=550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {
+      "settings": {
+        "webhookUrl": "https://new-server.example.com/verbeo-events"
+      }
+    }
+  }'
+```
+
+```bash Disable a native tool
+curl -X PATCH "https://api.verbeo.ai/agents?agentId=550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {
+      "nativeTools": {
+        "send_sms": { "enabled": false }
+      }
+    }
+  }'
+```
+
+```javascript Node.js
+const agentId = "550e8400-e29b-41d4-a716-446655440000";
+const response = await fetch(
+  `https://api.verbeo.ai/agents?agentId=${agentId}`,
+  {
+    method: "PATCH",
+    headers: {
+      Authorization: "Bearer YOUR_API_KEY",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      agentName: "Updated Support Agent",
+      config: {
+        voice: { voiceId: "Puck" },
+        settings: { maxCallDuration: 300 },
+      },
+    }),
+  }
+);
+const updated = await response.json();
+```
+
+</CodeGroup>
+
+## Response
+
+A successful request returns `200 OK` with the full updated agent object. The response structure is identical to the [Get agent](/api-reference/agents/get) response.
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
+  "agent_name": "Updated Support Agent",
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-22T15:45:00Z",
+  "config": {
+    "systemPrompt": "You are a helpful customer support agent...",
+    "voice": { "voiceId": "Puck" },
+    "toolIds": [],
+    "fileSearchStoreIds": [],
+    "nativeTools": {
+      "end_call": { "enabled": true }
+    },
+    "settings": {
+      "initialMessage": { "enabled": true },
+      "maxCallDuration": 300,
+      "endCallOnSilence": false,
+      "voicemailDetection": { "enabled": false, "action": "hangup" },
+      "webhookUrl": "https://new-server.example.com/verbeo-events",
+      "postCallAnalysis": { "enabled": false, "fields": [] }
+    }
+  }
+}
+```
+
+## Error responses
+
+| Status | Description |
+|--------|-------------|
+| `401` | Invalid or missing API key |
+| `404` | Agent not found — verify the `agentId` belongs to your workspace |
+| `500` | Internal server error |
+
+<Warning>
+  Updating `config.toolIds` or `config.fileSearchStoreIds` replaces the entire array. To add a single tool without removing existing ones, fetch the agent first, append the new UUID to the existing array, and send the full updated array.
+</Warning>

@@ -1,0 +1,125 @@
+---
+title: "How Calls Work in Verbeo"
+description: "Understand the full call lifecycle in Verbeo — call types, states, captured data, dynamic variables, and the post-call analysis flow."
+---
+
+Every interaction between a caller and an agent in Verbeo goes through a well-defined lifecycle. Whether the call originates from an inbound dial, an outbound API request, or a web-based session, Verbeo tracks it from the moment it is created to the point where analysis is complete. Understanding this lifecycle helps you build reliable integrations, debug issues quickly, and extract maximum value from every conversation.
+
+## Call types
+
+Verbeo handles three types of calls.
+
+<CardGroup cols={2}>
+  <Card title="Inbound" icon="phone-incoming">
+    A person dials one of your provisioned phone numbers. Verbeo routes the call to the assigned agent automatically.
+  </Card>
+  <Card title="Outbound" icon="phone-outgoing">
+    Your code triggers a call via the [Calls API](/api-reference/calls/initiate). You specify the destination number, the agent, and the `fromNumber`.
+  </Card>
+  <Card title="Web" icon="globe">
+    A call initiated from a browser-based interface. Captured and logged alongside phone calls.
+  </Card>
+</CardGroup>
+
+## Call states
+
+A call moves through the following states from creation to completion.
+
+| State | Description |
+|---|---|
+| `queued` | The call has been created and is waiting to be connected. |
+| `ringing` | The destination number is ringing. |
+| `in-progress` | The call is active and the agent is speaking with the caller. |
+| `completed` | The call has ended. All data, transcript, and analysis are finalized. |
+
+When you initiate an outbound call, the API response returns a `status` of `queued`. You can poll the [Get Call API](/api-reference/calls/get) or listen to [webhook events](/guides/webhooks) to track state transitions in real time.
+
+## Dynamic variables
+
+For outbound calls, you can personalize the agent's behavior by passing a `dynamicVariables` object in the call request. Verbeo substitutes `{{variable_name}}` placeholders in the agent's system prompt with the values you provide before the call begins.
+
+```json
+{
+  "toNumber": "+12025551234",
+  "agentId": "550e8400-e29b-41d4-a716-446655440000",
+  "fromNumber": "+19875554321",
+  "dynamicVariables": {
+    "customer_name": "Jane Smith",
+    "order_id": "ORD-98765"
+  }
+}
+```
+
+If your system prompt contains `Hello {{customer_name}}, I'm calling about order {{order_id}}`, the agent will open with `Hello Jane Smith, I'm calling about order ORD-98765`.
+
+Dynamic variables are stored on the call record and returned in the [Get Call](/api-reference/calls/get) response under `dynamic_variables`.
+
+## Data captured per call
+
+After a call ends, Verbeo stores a structured record with the following fields.
+
+| Field | Description |
+|---|---|
+| `duration` | Call length in seconds. |
+| `transcript` | Raw transcript of the full conversation. |
+| `summary` | A short prose summary of what was discussed. |
+| `analysis_data` | Structured fields extracted by post-call analysis (if enabled). |
+| `recording_url` | URL to the call recording (if recording is enabled). |
+| `disconnection_reason` | Why the call ended (e.g., `agent_hangup`, `customer_hangup`, `max_duration`). |
+| `dynamic_variables` | The variables passed at call initiation, for reference. |
+
+You can retrieve all of this data via the [Get Call API](/api-reference/calls/get) or receive it through webhook events.
+
+## Post-call analysis flow
+
+When `postCallAnalysis` is enabled on an agent, Verbeo runs a structured extraction job after each call ends. The full event sequence is:
+
+<Steps>
+  <Step title="call_started">
+    Fired when the call moves to `in-progress`. Contains basic call metadata: call ID, agent ID, phone numbers, and start time.
+  </Step>
+  <Step title="call_ended">
+    Fired when the call disconnects. Contains the transcript, summary, duration, and disconnection reason.
+  </Step>
+  <Step title="call_analyzed">
+    Fired after post-call analysis completes. Contains the structured `analysis_data` object with all configured fields extracted from the transcript.
+  </Step>
+</Steps>
+
+<Note>
+  `call_analyzed` is only sent when `postCallAnalysis.enabled` is `true` in the agent's settings. If analysis is disabled, the event sequence ends at `call_ended`.
+</Note>
+
+Each of these events is delivered to the `webhookUrl` you configure on the agent. See [Webhooks](/guides/webhooks) for the full event payload schemas.
+
+## Example call record
+
+The following is a representative response from the [Get Call API](/api-reference/calls/get) for a completed outbound call with post-call analysis enabled.
+
+```json
+{
+  "id": "772g0622-g41d-63f6-c938-668877662222",
+  "call_type": "outbound",
+  "from_number": "+19875554321",
+  "to_number": "+12025551234",
+  "status": "completed",
+  "duration": 183,
+  "disconnection_reason": "agent_hangup",
+  "started_at": "2026-05-01T14:00:00Z",
+  "ended_at": "2026-05-01T14:03:03Z",
+  "transcript": "Agent: Hello Jane, I'm calling about order ORD-98765...",
+  "summary": "The agent called Jane Smith about her delayed order. She confirmed the new delivery date and no further action was required.",
+  "analysis_data": {
+    "issue_resolved": true,
+    "follow_up_required": false
+  },
+  "dynamic_variables": {
+    "customer_name": "Jane Smith",
+    "order_id": "ORD-98765"
+  }
+}
+```
+
+<Tip>
+  Use `analysis_data` to feed call outcomes back into your CRM or trigger downstream workflows — for example, automatically creating a follow-up task when `follow_up_required` is `true`.
+</Tip>

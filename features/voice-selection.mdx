@@ -1,0 +1,145 @@
+---
+title: "Choose the right voice for your agent"
+description: "Verbeo uses Google Gemini real-time voices for natural, low-latency conversation. Browse all 30 available voices and learn how to set and test them."
+---
+
+Every Verbeo agent speaks with a Google Gemini real-time audio voice. These voices are designed for live, two-way conversation — they respond naturally and with minimal latency. Because they run in real time, speed control is not available; the pacing is optimized automatically for the best conversational experience. The default voice is **Zephyr** (also known as Nour), but you have 30 voices to choose from.
+
+## Available voices
+
+The table below lists every voice you can assign to an agent. Voices with a common name in parentheses are recognizable by that name in the Verbeo dashboard.
+
+| Voice ID | Common name |
+|---|---|
+| `Zephyr` | Nour (default) |
+| `Puck` | Adam |
+| `Charon` | John |
+| `Kore` | — |
+| `Fenrir` | Rasheem |
+| `Leda` | — |
+| `Orus` | — |
+| `Aoede` | Paige |
+| `Callirrhoe` | — |
+| `Autonoe` | — |
+| `Enceladus` | Mark |
+| `Iapetus` | — |
+| `Umbriel` | Trejon |
+| `Algieba` | — |
+| `Despina` | — |
+| `Erinome` | — |
+| `Algenib` | — |
+| `Rasalgethi` | — |
+| `Laomedeia` | — |
+| `Achernar` | — |
+| `Alnilam` | — |
+| `Schedar` | Brendan |
+| `Gacrux` | — |
+| `Pulcherrima` | — |
+| `Achird` | Alejo |
+| `Zubenelgenubi` | — |
+| `Vindemiatrix` | — |
+| `Sadachbia` | — |
+| `Sadaltager` | — |
+| `Sulafat` | — |
+
+## Set a voice via the API
+
+You set a voice by passing its `voiceId` inside the `config.voice` object when you create or update an agent.
+
+### When creating an agent
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "Support Agent",
+    "config": {
+      "voice": {
+        "voiceId": "Aoede"
+      }
+    }
+  }'
+```
+
+```json Request body
+{
+  "agentName": "Support Agent",
+  "config": {
+    "voice": {
+      "voiceId": "Aoede"
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+### When updating an existing agent
+
+```bash cURL
+curl -X PATCH "https://api.verbeo.ai/agents?agentId=YOUR_AGENT_ID" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {
+      "voice": {
+        "voiceId": "Schedar"
+      }
+    }
+  }'
+```
+
+<Note>
+  If you omit `config.voice.voiceId`, the agent defaults to `Zephyr` (Nour).
+</Note>
+
+## Test voices in the dashboard
+
+Verbeo includes a built-in voice test page so you can hear how your agent sounds before deploying it. The test runs a real-time WebRTC session directly in your browser — no phone call required.
+
+<Steps>
+  <Step title="Open the agent">
+    Navigate to **Agents** in the sidebar and click the agent you want to test.
+  </Step>
+  <Step title="Launch Voice Test">
+    Click **Test Voice** (or the microphone icon) on the agent detail page. This opens the **Voice Agent Test** interface.
+  </Step>
+  <Step title="Allow microphone access">
+    When prompted, click **Allow** so the browser can capture your audio input.
+  </Step>
+  <Step title="Start the session">
+    Click **Start Voice Test**. A green indicator confirms the session is live.
+  </Step>
+  <Step title="Speak naturally">
+    Talk to the agent as a caller would. You'll hear the response in the selected voice in real time, and tool execution logs appear below the conversation panel.
+  </Step>
+  <Step title="End the session">
+    Click **End Session** when you are done. Switch the agent's voice via the API or dashboard, then start a new session to compare.
+  </Step>
+</Steps>
+
+<Tip>
+  Run the Voice Test after every voice change before rolling out to real callers. Hearing the voice in context reveals nuances that a name alone cannot convey.
+</Tip>
+
+## Tips for picking the right voice
+
+Choosing a voice is a branding decision as much as a technical one. Here are factors worth considering.
+
+<AccordionGroup>
+  <Accordion title="Match your brand tone">
+    Voices differ in perceived warmth, authority, and energy. Test voices against your agent's opening message — a formal financial services agent often sounds more trustworthy with a measured voice like `Charon` or `Schedar`, while a friendly retail assistant may suit a warmer option like `Aoede` or `Zephyr`.
+  </Accordion>
+  <Accordion title="Consider your audience">
+    If your callers expect to hear a specific name (for example, you market your agent as "Paige"), choose the voice that matches — `Aoede` carries that common name. For multilingual or international audiences, listen to how each voice handles accented words or product names before deciding.
+  </Accordion>
+  <Accordion title="Keep consistency across agents">
+    If you run multiple agents (support, sales, scheduling), consider using a consistent voice family across them. Callers who interact with more than one agent will perceive a more cohesive brand experience.
+  </Accordion>
+  <Accordion title="Test with real scripts">
+    The Voice Test page lets you run through your actual system prompt scenario. Read your agent's anticipated dialogue out loud as a test caller would. Edge cases — long silences, complex product names, numbers — can sound different across voices.
+  </Accordion>
+</AccordionGroup>

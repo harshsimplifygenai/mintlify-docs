@@ -1,0 +1,137 @@
+---
+title: "Track call performance with analytics"
+description: "The Verbeo Analytics dashboard shows call volume, duration, cost, and outcomes across all your agents with filterable charts and trend views."
+---
+
+Verbeo's Analytics dashboard gives you a consolidated view of how your agents are performing. You can see how many calls happened, how long they ran, what they cost, and how call volume trends over time — all without writing a single query. Filters let you narrow the view to a specific agent, call type, or time window so you can diagnose issues or spot patterns quickly.
+
+## Access analytics
+
+Navigate to **Analytics** in the left sidebar of the Verbeo dashboard. The page loads your workspace's call data automatically.
+
+## Filters
+
+Three filters sit at the top of the page. You can apply any combination of them.
+
+| Filter | Options |
+|---|---|
+| **Time range** | Today, Last 7 days, Last 30 days |
+| **Call type** | All types, Inbound, Outbound, Web |
+| **Agent** | All agents, or any individual agent in your workspace |
+
+All metrics and charts update instantly when you change a filter.
+
+## Summary metrics
+
+Four metric cards appear below the filters and summarize the filtered data at a glance.
+
+<CardGroup cols={2}>
+  <Card title="Total calls" icon="phone">
+    The number of calls handled in the selected period. This includes all call types unless you have filtered by type.
+  </Card>
+  <Card title="Total cost" icon="dollar-sign">
+    The total spend for the filtered calls. Calculated from the per-minute usage rate stored at billing time, so the figure reflects what was actually charged.
+  </Card>
+  <Card title="Avg duration" icon="clock">
+    The mean call length in minutes and seconds. Use this to spot unusually short or long calls that may indicate a scripting or tool issue.
+  </Card>
+  <Card title="Cost per call" icon="trending-up">
+    Total cost divided by total calls. Useful for budgeting outbound campaigns or comparing efficiency across agents.
+  </Card>
+</CardGroup>
+
+## Charts
+
+Four charts appear below the metric cards. Each updates when you change the filters.
+
+### Calls over time
+
+A bar chart showing call volume for each day in the selected window. Tall bars indicate high-traffic days; gaps may reveal scheduling patterns or system downtime.
+
+### Cost over time
+
+A line chart showing the daily spend for the same period. Plot this alongside the calls chart to understand whether cost spikes correlate with volume or whether individual calls are becoming more expensive.
+
+### Call type distribution
+
+A pie chart breaking down calls by type: **Inbound**, **Outbound**, and **Web**. Web calls only appear if your workspace has web calls. Use this view to understand which channels drive the most activity.
+
+### Status distribution
+
+A pie chart showing calls grouped by their final status (for example, completed, failed). A growing share of non-completed calls is a signal worth investigating in the [Calls API](#programmatic-access).
+
+<Tip>
+  Combine the **Agent** filter with the **Status distribution** chart to quickly find which agent has the highest failure rate and investigate its configuration.
+</Tip>
+
+## Programmatic access
+
+The dashboard is the fastest way to explore call data, but if you need to export data, build custom reports, or trigger workflows based on call outcomes, use the Calls API.
+
+### List calls
+
+```bash cURL
+curl -X GET "https://api.verbeo.ai/calls?limit=100&callType=outbound" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+### Filter by status
+
+```bash cURL
+curl -X GET "https://api.verbeo.ai/calls?status=completed&limit=50" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+### Paginate through all calls
+
+```bash cURL
+curl -X GET "https://api.verbeo.ai/calls?limit=100&offset=100" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+The response includes a `pagination` object:
+
+```json Response
+{
+  "calls": [...],
+  "pagination": {
+    "limit": 100,
+    "offset": 100,
+    "hasMore": true
+  }
+}
+```
+
+Keep incrementing `offset` by `limit` until `hasMore` is `false`.
+
+### Available query parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `limit` | number | 50 | Records to return per request (max 100) |
+| `offset` | number | 0 | Records to skip (for pagination) |
+| `status` | string | — | Filter by call status: `queued`, `ringing`, `in-progress`, `completed` |
+| `callType` | string | — | Filter by type: `inbound`, `outbound`, `web` |
+| `callId` | string | — | Return a single call record |
+
+<Note>
+  The Calls API requires a **private** API key (prefix `vbr_`). Public keys (`vbr_pub_`) cannot retrieve call history. Generate a private key in **Settings → API Keys**.
+</Note>
+
+## Use post-call analysis data in your reports
+
+If you have [post-call analysis](/guides/post-call-analysis) configured on an agent, each call record returned by the API includes an `analysis_data` field with the structured values your agent extracted. You can use this to build custom outcome reports outside the dashboard.
+
+```json Example call record with analysis data
+{
+  "id": "772g0622-g41d-63f6-c938-668877662222",
+  "call_type": "outbound",
+  "status": "completed",
+  "duration": 245,
+  "summary": "Customer called about order status.",
+  "analysis_data": {
+    "customer_satisfaction": 4,
+    "issue_resolved": true
+  }
+}
+```

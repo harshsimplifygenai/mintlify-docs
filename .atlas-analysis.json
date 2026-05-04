@@ -1,0 +1,130 @@
+{
+  "projectType": "saas",
+  "projectName": "Verbeo",
+  "projectDescription": "Verbeo is an AI voice agent platform that lets businesses build, deploy, and manage intelligent phone agents for inbound and outbound calling, batch campaigns, and post-call analytics.",
+  "theme": "luma",
+  "primaryColor": "#4464fc",
+  "lightColor": null,
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/agents",
+              "concepts/phone-numbers",
+              "concepts/calls",
+              "concepts/knowledge-base"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/build-your-first-agent",
+              "guides/outbound-calls",
+              "guides/batch-campaigns",
+              "guides/custom-tools",
+              "guides/post-call-analysis",
+              "guides/webhooks"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/voice-selection",
+              "features/sip-uri",
+              "features/analytics"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/overview",
+              "api-reference/authentication"
+            ]
+          },
+          {
+            "group": "Agents",
+            "pages": [
+              "api-reference/agents/create",
+              "api-reference/agents/list",
+              "api-reference/agents/get",
+              "api-reference/agents/update",
+              "api-reference/agents/delete"
+            ]
+          },
+          {
+            "group": "Calls",
+            "pages": [
+              "api-reference/calls/initiate",
+              "api-reference/calls/list",
+              "api-reference/calls/get"
+            ]
+          },
+          {
+            "group": "Campaigns",
+            "pages": [
+              "api-reference/campaigns/create",
+              "api-reference/campaigns/manage"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "api-reference/webhooks/events",
+              "api-reference/webhooks/tool-calls"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "AI voice agents powered by Google Gemini real-time audio",
+    "Outbound call initiation via REST API",
+    "Batch calling campaigns with retry logic and scheduling",
+    "Knowledge base integration (Gemini File Search & Pinecone)",
+    "Custom tool webhooks for mid-call backend integrations",
+    "Post-call analysis with structured data extraction",
+    "Native tools: call transfer, call end, SMS sending",
+    "Voicemail detection and handling",
+    "SIP URI support for PBX/telephony integrations",
+    "Dynamic variables for personalized call scripts",
+    "Call recording and transcripts",
+    "Analytics dashboard for call metrics and costs"
+  ],
+  "publicApiSurface": [
+    "POST https://api.verbeo.ai/agents",
+    "GET https://api.verbeo.ai/agents",
+    "GET https://api.verbeo.ai/agents?agentId={id}",
+    "PATCH https://api.verbeo.ai/agents?agentId={id}",
+    "DELETE https://api.verbeo.ai/agents?agentId={id}",
+    "POST https://api.verbeo.ai/calls",
+    "GET https://api.verbeo.ai/calls",
+    "GET https://api.verbeo.ai/calls?callId={id}",
+    "POST /campaigns/create",
+    "POST /campaigns/resume",
+    "POST /campaigns/pause",
+    "POST /campaigns/cancel",
+    "Webhook event: call_started",
+    "Webhook event: call_ended",
+    "Webhook event: call_analyzed",
+    "Webhook event: tool_invoked (custom tool calls)"
+  ]
+}

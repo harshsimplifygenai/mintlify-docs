@@ -1,0 +1,212 @@
+---
+title: "Run batch calling campaigns"
+description: "Create and manage a campaign to call hundreds or thousands of contacts automatically, with configurable retry logic and scheduling."
+---
+
+A batch campaign lets you dial a large list of contacts using a single API call. You define the contacts, pick an agent and phone number, configure how many times to retry unreached contacts and how long to wait between attempts, and optionally schedule the campaign to start at a specific time. Verbeo handles the concurrency, retry scheduling, and progress tracking — you just watch it run.
+
+<Note>
+  Batch campaigns require a **Pro plan**. On the free tier, campaigns are not available. Upgrade under **Settings → Billing**.
+</Note>
+
+## Campaign lifecycle
+
+Every campaign moves through a predictable set of states:
+
+```text
+draft → scheduled (if scheduled_at set) → in-progress → completed
+              or
+draft → in-progress (if resumed manually) → completed
+```
+
+You can **pause** a running campaign at any time and **resume** it later. You can also **cancel** a campaign that is in `draft`, `scheduled`, or `in-progress` state.
+
+| Status | Meaning |
+|---|---|
+| `draft` | Created but not yet started. Call `/resume/` to start immediately. |
+| `scheduled` | Will start automatically at `scheduled_at`. |
+| `in-progress` | Calls are being placed. |
+| `completed` | All contacts have been reached or exhausted retries. |
+| `paused` | Manually paused — no new calls are placed. |
+| `cancelled` | Permanently stopped. Cannot be resumed. |
+
+## Create a campaign
+
+Send a `POST` request to the campaign creation endpoint with your contact list and configuration.
+
+```text
+POST https://api.verbeo.ai/campaigns/create
+```
+
+### Request fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `campaign_name` | string | Yes | A label for this campaign |
+| `phone_number` | string | Yes | Your provisioned caller ID in E.164 format |
+| `agent_id` | string | Yes | UUID of the agent that handles each call |
+| `contacts` | array | Yes | List of contacts to call (see below) |
+| `max_retries` | number | No | Number of additional attempts per contact (0–6, default: 0) |
+| `retry_intervals` | array | No | Minutes to wait before each retry (e.g. `[5, 15, 60]`) |
+| `scheduled_at` | string | No | ISO 8601 UTC timestamp to start the campaign automatically |
+
+### Contact object
+
+Each contact in the `contacts` array can include:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `phone_number` | string | Yes | Contact's number in E.164 format |
+| `contact_name` | string | No | Contact's name — available as `{{contact_name}}` in the agent prompt |
+| `custom_data` | object | No | Any additional key-value pairs, available as dynamic variables in the prompt |
+
+### Example: campaign with retry logic
+
+This example creates a campaign to call 3 contacts. If a contact does not answer, Verbeo retries after 5 minutes, then again after 15 minutes, for a maximum of 3 total attempts per contact.
+
+```bash
+curl -X POST "https://api.verbeo.ai/campaigns/create" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_name": "Q2 Follow-up Outreach",
+    "phone_number": "+15550001234",
+    "agent_id": "51908052-dd90-4ede-81e4-420cb4c68754",
+    "contacts": [
+      {
+        "phone_number": "+12125550001",
+        "contact_name": "Alice Johnson",
+        "custom_data": {
+          "company": "Acme Corp",
+          "last_purchase": "2026-01-15"
+        }
+      },
+      {
+        "phone_number": "+12125550002",
+        "contact_name": "Bob Smith"
+      },
+      {
+        "phone_number": "+12125550003",
+        "contact_name": "Carol White",
+        "custom_data": {
+          "company": "Beta Inc"
+        }
+      }
+    ],
+    "max_retries": 2,
+    "retry_intervals": [5, 15]
+  }'
+```
+
+### Example: scheduled campaign
+
+Set `scheduled_at` to a future UTC timestamp and Verbeo will start the campaign automatically without any further action from you.
+
+```bash
+curl -X POST "https://api.verbeo.ai/campaigns/create" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_name": "Monday Morning Outreach",
+    "phone_number": "+15550001234",
+    "agent_id": "51908052-dd90-4ede-81e4-420cb4c68754",
+    "contacts": [
+      {"phone_number": "+12125550001", "contact_name": "Alice Johnson"},
+      {"phone_number": "+12125550002", "contact_name": "Bob Smith"}
+    ],
+    "max_retries": 1,
+    "retry_intervals": [30],
+    "scheduled_at": "2026-05-12T14:00:00Z"
+  }'
+```
+
+The campaign is created with status `scheduled` and starts automatically at the specified time (9 AM EST = 2 PM UTC in this example).
+
+<Tip>
+  Always use UTC in `scheduled_at`. To target 9 AM Eastern, use `14:00:00Z`. To target 9 AM Pacific, use `17:00:00Z`.
+</Tip>
+
+## Retry logic
+
+`max_retries` sets how many additional attempts to make after the initial call. `retry_intervals` is an array of wait times in minutes between each attempt.
+
+| Setting | Meaning |
+|---|---|
+| `max_retries: 2` | Up to 3 total attempts per contact (1 initial + 2 retries) |
+| `retry_intervals: [5, 15]` | Wait 5 minutes before the 1st retry, 15 minutes before the 2nd |
+
+**What triggers a retry:**
+
+- Voicemail detected
+- No answer
+- Line busy
+- Dial failure or temporary error
+
+**What does not trigger a retry:**
+
+- The contact answered and the call completed (success)
+- The call was transferred (success)
+- Maximum call duration reached (a conversation occurred)
+
+<Note>
+  If `retry_intervals` has fewer entries than `max_retries`, the last interval is reused for remaining retries. For example, `max_retries: 4, retry_intervals: [5, 10]` retries at 5 min, 10 min, 10 min, 10 min.
+</Note>
+
+## Using custom data in the agent prompt
+
+Any fields you pass in `custom_data` (and `contact_name`) are available as dynamic variables in the agent's system prompt using `{{variable_name}}` syntax:
+
+```text
+You are calling {{contact_name}} from {{company}}.
+Their last purchase was on {{last_purchase}}.
+Begin by thanking them for their business and asking how the product is working out.
+```
+
+Each contact gets a personalized call with their own values substituted in.
+
+## Manage a running campaign
+
+### Resume (start) a campaign
+
+A campaign in `draft` state must be explicitly resumed to start. Scheduled campaigns start automatically, but you can also resume them early.
+
+```bash
+curl -X POST "https://api.verbeo.ai/campaigns/resume" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_id": "YOUR_CAMPAIGN_ID"
+  }'
+```
+
+### Pause a campaign
+
+```bash
+curl -X POST "https://api.verbeo.ai/campaigns/pause" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_id": "YOUR_CAMPAIGN_ID"
+  }'
+```
+
+### Cancel a campaign
+
+```bash
+curl -X POST "https://api.verbeo.ai/campaigns/cancel" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_id": "YOUR_CAMPAIGN_ID"
+  }'
+```
+
+<Warning>
+  Cancellation is permanent. A cancelled campaign cannot be resumed. If you need to stop calls temporarily, use **pause** instead.
+</Warning>
+
+## Concurrency and scale
+
+Your workspace's concurrency limit controls how many calls run simultaneously. On the Pro plan, up to **50 calls** run in parallel. If you have 200 contacts and a 50-call limit, the first 50 calls start immediately; as each call completes, the next contact is dialed.
+
+There is no hard limit on the number of contacts in a single campaign. For very large lists (1,000+), consider splitting into multiple campaigns for easier monitoring and cancellation.

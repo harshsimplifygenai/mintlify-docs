@@ -1,0 +1,176 @@
+---
+title: "AI Agents in Verbeo"
+description: "An agent is an AI persona that handles phone calls. Learn how to configure its voice, system prompt, native tools, and call-level settings."
+---
+
+An agent is the core building block of Verbeo. Each agent is an AI persona powered by Google Gemini that can answer inbound calls, make outbound calls, and interact with callers in natural spoken language. You define how the agent behaves through its system prompt, choose a voice, enable native tools, and configure call-level settings — all in one configuration object.
+
+## System prompt
+
+The system prompt is the primary way you shape your agent's behavior. It tells the agent who it is, what it can and cannot do, and how it should communicate. Write it in plain language, as if giving instructions to a human employee.
+
+```text
+You are a customer support agent for Acme Corp. Your role is to:
+- Help customers troubleshoot billing and account issues
+- Transfer callers to the sales team when they ask about new products
+- End the call politely once the issue is resolved
+
+Always confirm the caller's name before making any changes to their account.
+Never share internal pricing data or unreleased product details.
+```
+
+<Tip>
+  Be specific about edge cases. The more concrete your instructions, the more consistently the agent will behave during live calls.
+</Tip>
+
+## Dynamic variables
+
+You can inject caller-specific data into the system prompt at call time using the `{{variable_name}}` syntax. When you initiate an outbound call, pass a `dynamicVariables` object alongside the request — Verbeo substitutes each `{{key}}` in the prompt with the corresponding value before the call begins.
+
+```text
+You are calling {{customer_name}} about their open support ticket #{{ticket_id}}.
+Greet them by name and summarize the issue before asking how you can help.
+```
+
+This lets a single agent handle personalized calls for many different customers without creating separate agents for each scenario. Dynamic variables also work when dialing an agent via SIP URI — see [SIP URI](/features/sip-uri) for details.
+
+## Voice selection
+
+Every agent uses a real-time Google Gemini voice. Set the voice by providing a `voiceId` in the `config.voice` object. The default voice is `Zephyr`.
+
+Available voices include `Zephyr` (Nour), `Puck` (Adam), `Charon` (John), `Aoede` (Paige), `Fenrir` (Rasheem), `Enceladus` (Mark), `Umbriel` (Trejon), `Schedar` (Brendan), and more than twenty others. Because Gemini uses real-time audio generation, speed control is not available.
+
+<Tip>
+  Test a few voices with your specific script before deploying. Some voices suit formal use cases; others feel more conversational.
+</Tip>
+
+## Native tools
+
+Native tools give the agent built-in call capabilities without any custom code. You configure them inside `config.nativeTools`.
+
+<AccordionGroup>
+  <Accordion title="end_call — hang up the call">
+    Enables the agent to end the call when the conversation concludes. You should always enable this tool so the agent can hang up gracefully instead of waiting for the caller to disconnect.
+
+    ```json
+    "end_call": {
+      "enabled": true,
+      "description": "End the call when the user says goodbye or when the conversation is complete."
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="transfer_call — transfer to a human or another number">
+    Transfers the active call to another phone number. Supports two modes:
+
+    - **Static** — always transfers to the same number. Requires `staticDestination` in E.164 format (e.g., `+12025551234`) and a `description` explaining when to transfer.
+    - **Dynamic** — the agent determines the destination based on the conversation. Requires a `dynamicPrompt` with routing instructions.
+
+    ```json
+    "transfer_call": {
+      "enabled": true,
+      "mode": "static",
+      "staticDestination": "+12025551234",
+      "description": "Transfer to the billing team when the caller asks about invoices or payments."
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="send_sms — send a text message during a call">
+    Allows the agent to send an SMS to the caller mid-call. Set `smsContentType` to `"prompt"` for AI-generated messages or `"static"` for a fixed template.
+
+    ```json
+    "send_sms": {
+      "enabled": true,
+      "description": "Send the caller a confirmation text when they request a summary.",
+      "smsContentType": "prompt"
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Call settings
+
+The `config.settings` object controls call-level behavior.
+
+| Setting | Type | Default | Description |
+|---|---|---|---|
+| `initialMessage.enabled` | boolean | `true` | When `true`, the agent speaks first. When `false`, the agent waits for the caller to speak. |
+| `maxCallDuration` | number | `600` | Maximum call length in seconds before the call is automatically ended. |
+| `endCallOnSilence` | boolean | `false` | End the call automatically if the caller is silent. |
+| `silenceTimeoutMinutes` | number | `5` | Minutes of silence before ending the call (only used when `endCallOnSilence` is `true`). |
+| `voicemailDetection.enabled` | boolean | `false` | Detect voicemail greetings on outbound calls. |
+| `voicemailDetection.action` | string | `"hangup"` | What to do when voicemail is detected: `"hangup"` ends the call immediately, `"leave_message"` lets the agent leave a message. |
+| `webhookUrl` | string | `""` | URL to receive real-time call lifecycle events. See [Webhooks](/guides/webhooks). |
+| `postCallAnalysis.enabled` | boolean | `false` | Extract structured data from each call after it ends. See [Post-call analysis](/guides/post-call-analysis). |
+
+## SIP URI
+
+When you create an agent with `sipUri: true`, Verbeo generates a SIP address for that agent. Any SIP-compatible device or PBX can dial this address to connect directly to the agent — no phone number required. This is useful for connecting existing telephony infrastructure to Verbeo without provisioning a new number.
+
+See [SIP URI](/features/sip-uri) for setup instructions and how to pass dynamic variables via SIP headers.
+
+## Example configuration
+
+The following example shows a complete agent config with common settings enabled.
+
+```json
+{
+  "agentName": "Billing Support Agent",
+  "config": {
+    "systemPrompt": "You are a billing support agent for Acme Corp. Help callers with invoice questions, payment issues, and account updates. Always confirm the caller's name before making changes. Transfer to a human agent if the issue requires account escalation.",
+    "voice": {
+      "voiceId": "Zephyr"
+    },
+    "nativeTools": {
+      "end_call": {
+        "enabled": true,
+        "description": "End the call when the conversation is complete or the caller says goodbye."
+      },
+      "transfer_call": {
+        "enabled": true,
+        "mode": "static",
+        "staticDestination": "+12025551234",
+        "description": "Transfer to a human agent when the issue cannot be resolved by the AI."
+      },
+      "send_sms": {
+        "enabled": true,
+        "description": "Send a confirmation text when the caller requests a summary of the call.",
+        "smsContentType": "prompt"
+      }
+    },
+    "settings": {
+      "initialMessage": {
+        "enabled": true
+      },
+      "maxCallDuration": 600,
+      "voicemailDetection": {
+        "enabled": true,
+        "action": "hangup"
+      },
+      "postCallAnalysis": {
+        "enabled": true,
+        "fields": [
+          {
+            "name": "issue_resolved",
+            "description": "Whether the caller's billing issue was resolved during the call.",
+            "type": "boolean",
+            "required": true
+          },
+          {
+            "name": "follow_up_required",
+            "description": "Whether a follow-up call or action is needed.",
+            "type": "boolean",
+            "required": false
+          }
+        ]
+      },
+      "webhookUrl": "https://your-server.com/verbeo-events"
+    }
+  }
+}
+```
+
+<Note>
+  You can create and update agents through the Verbeo dashboard or via the [Agents API](/api-reference/agents/create). The dashboard is the easiest way to get started; the API is best for automated workflows and programmatic agent management.
+</Note>

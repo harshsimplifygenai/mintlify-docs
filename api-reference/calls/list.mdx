@@ -1,0 +1,208 @@
+---
+title: "GET /calls — List call history"
+sidebarTitle: "List calls"
+description: "Retrieve paginated call history for your workspace. Filter by status or call type and paginate through large result sets."
+---
+
+This endpoint returns a paginated list of calls from your workspace history, ordered by creation date descending. You can filter results by call status or type to narrow down the records you need. For full details on a single call — including the transcript and analysis data — use the [Get call](/api-reference/calls/get) endpoint.
+
+## Endpoint
+
+```
+GET https://api.verbeo.ai/calls
+```
+
+## Query parameters
+
+<ParamField query="limit" type="number" default="50">
+  Maximum number of calls to return. The maximum allowed value is `100`.
+</ParamField>
+
+<ParamField query="offset" type="number" default="0">
+  Number of records to skip before returning results. Use this with `limit` to paginate through large result sets.
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by call status. Accepted values: `queued`, `ringing`, `in-progress`, `completed`.
+</ParamField>
+
+<ParamField query="callType" type="string">
+  Filter by call type. Accepted values: `inbound`, `outbound`, `web`.
+</ParamField>
+
+## Request
+
+<CodeGroup>
+
+```bash All calls
+curl -X GET "https://api.verbeo.ai/calls" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash With filters
+curl -X GET "https://api.verbeo.ai/calls?limit=20&callType=outbound&status=completed" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript Node.js
+const params = new URLSearchParams({
+  limit: "20",
+  callType: "outbound",
+  status: "completed",
+});
+const response = await fetch(
+  `https://api.verbeo.ai/calls?${params}`,
+  {
+    headers: {
+      Authorization: "Bearer YOUR_API_KEY",
+    },
+  }
+);
+const data = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "https://api.verbeo.ai/calls",
+    headers={"Authorization": "Bearer YOUR_API_KEY"},
+    params={
+        "limit": 20,
+        "callType": "outbound",
+        "status": "completed",
+    },
+)
+data = response.json()
+```
+
+</CodeGroup>
+
+## Response
+
+A successful request returns `200 OK` with a `calls` array and pagination metadata.
+
+<ResponseField name="calls" type="object[]" required>
+  Array of call objects.
+
+  <Expandable title="call object properties">
+    <ResponseField name="id" type="string" required>
+      Verbeo UUID for this call.
+    </ResponseField>
+    <ResponseField name="call_sid" type="string" required>
+      Twilio Call SID (prefixed `CA`).
+    </ResponseField>
+    <ResponseField name="call_type" type="string" required>
+      Direction and channel: `"inbound"`, `"outbound"`, or `"web"`.
+    </ResponseField>
+    <ResponseField name="from_number" type="string" required>
+      The originating phone number in E.164 format.
+    </ResponseField>
+    <ResponseField name="to_number" type="string" required>
+      The destination phone number in E.164 format.
+    </ResponseField>
+    <ResponseField name="status" type="string" required>
+      Current or final call status: `queued`, `ringing`, `in-progress`, or `completed`.
+    </ResponseField>
+    <ResponseField name="duration" type="number">
+      Call duration in seconds. Present after the call ends.
+    </ResponseField>
+    <ResponseField name="disconnection_reason" type="string">
+      Reason the call ended: `user_hangup`, `agent_hangup`, `completed`, `timeout`, or `error`.
+    </ResponseField>
+    <ResponseField name="started_at" type="string">
+      ISO 8601 timestamp of when the call was answered.
+    </ResponseField>
+    <ResponseField name="ended_at" type="string">
+      ISO 8601 timestamp of when the call ended.
+    </ResponseField>
+    <ResponseField name="created_at" type="string" required>
+      ISO 8601 timestamp of when the call record was created.
+    </ResponseField>
+    <ResponseField name="agent_id" type="string" required>
+      UUID of the agent that handled the call.
+    </ResponseField>
+    <ResponseField name="phone_number_id" type="string">
+      UUID of the workspace phone number used for the call.
+    </ResponseField>
+    <ResponseField name="summary" type="string">
+      AI-generated summary of the call. Available after post-call analysis completes.
+    </ResponseField>
+    <ResponseField name="analysis_data" type="object">
+      Structured fields extracted by post-call analysis, keyed by the field names you configured on the agent.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pagination" type="object" required>
+  Pagination metadata.
+
+  <Expandable title="pagination properties">
+    <ResponseField name="limit" type="number" required>
+      The `limit` value used for this response.
+    </ResponseField>
+    <ResponseField name="offset" type="number" required>
+      The `offset` value used for this response.
+    </ResponseField>
+    <ResponseField name="hasMore" type="boolean" required>
+      `true` when there are additional records beyond this page.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example response
+
+```json
+{
+  "calls": [
+    {
+      "id": "772g0622-g41d-63f6-c938-668877662222",
+      "call_sid": "CAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "call_type": "outbound",
+      "from_number": "+1987654321",
+      "to_number": "+1234567890",
+      "status": "completed",
+      "duration": 245,
+      "disconnection_reason": "agent_hangup",
+      "started_at": "2024-01-15T10:30:00Z",
+      "ended_at": "2024-01-15T10:34:05Z",
+      "created_at": "2024-01-15T10:29:55Z",
+      "agent_id": "550e8400-e29b-41d4-a716-446655440000",
+      "phone_number_id": "661f9511-f30c-52e5-b827-557766551111",
+      "summary": "Customer called about order status. Issue was resolved — order ships tomorrow.",
+      "analysis_data": {
+        "issue_resolved": true,
+        "follow_up_required": false
+      }
+    }
+  ],
+  "pagination": {
+    "limit": 20,
+    "offset": 0,
+    "hasMore": true
+  }
+}
+```
+
+## Pagination example
+
+To fetch all completed outbound calls in pages of 50:
+
+```bash
+# Page 1
+curl "https://api.verbeo.ai/calls?limit=50&offset=0&callType=outbound&status=completed" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+
+# Page 2
+curl "https://api.verbeo.ai/calls?limit=50&offset=50&callType=outbound&status=completed" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+Continue incrementing `offset` by `limit` until `pagination.hasMore` is `false`.
+
+## Error responses
+
+| Status | Description |
+|--------|-------------|
+| `401` | Invalid or missing API key |
+| `500` | Internal server error |

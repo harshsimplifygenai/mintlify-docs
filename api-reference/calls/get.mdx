@@ -1,0 +1,193 @@
+---
+title: "GET /calls — Get call by ID"
+sidebarTitle: "Get call"
+description: "Retrieve complete details for a single call, including the transcript, post-call analysis, dynamic variables, and agent and phone number metadata."
+---
+
+This endpoint returns the complete record for a specific call. In addition to the summary fields available in the [List calls](/api-reference/calls/list) response, it includes the full conversation transcript, enhanced transcript, dynamic variables that were passed at call initiation, and metadata about the agent and phone number involved.
+
+<Note>
+  The `transcript`, `analysis_data`, and `summary` fields are populated after post-call analysis completes, typically 20–30 seconds after the call ends. If you retrieve a call record immediately after it ends, these fields may be absent or empty.
+</Note>
+
+## Endpoint
+
+```
+GET https://api.verbeo.ai/calls?callId={callId}
+```
+
+## Query parameters
+
+<ParamField query="callId" type="string" required>
+  Verbeo UUID of the call to retrieve.
+</ParamField>
+
+## Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "https://api.verbeo.ai/calls?callId=772g0622-g41d-63f6-c938-668877662222" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript Node.js
+const callId = "772g0622-g41d-63f6-c938-668877662222";
+const response = await fetch(
+  `https://api.verbeo.ai/calls?callId=${callId}`,
+  {
+    headers: {
+      Authorization: "Bearer YOUR_API_KEY",
+    },
+  }
+);
+const call = await response.json();
+```
+
+```python Python
+import requests
+
+call_id = "772g0622-g41d-63f6-c938-668877662222"
+response = requests.get(
+    f"https://api.verbeo.ai/calls?callId={call_id}",
+    headers={"Authorization": "Bearer YOUR_API_KEY"},
+)
+call = response.json()
+```
+
+</CodeGroup>
+
+## Response
+
+A successful request returns `200 OK` with the full call object.
+
+<ResponseField name="id" type="string" required>
+  Verbeo UUID for this call.
+</ResponseField>
+
+<ResponseField name="call_sid" type="string" required>
+  Twilio Call SID (prefixed `CA`).
+</ResponseField>
+
+<ResponseField name="call_type" type="string" required>
+  Direction and channel: `"inbound"`, `"outbound"`, or `"web"`.
+</ResponseField>
+
+<ResponseField name="from_number" type="string" required>
+  Originating phone number in E.164 format.
+</ResponseField>
+
+<ResponseField name="to_number" type="string" required>
+  Destination phone number in E.164 format.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Final call status: `queued`, `ringing`, `in-progress`, or `completed`.
+</ResponseField>
+
+<ResponseField name="duration" type="number">
+  Call duration in seconds.
+</ResponseField>
+
+<ResponseField name="disconnection_reason" type="string">
+  Reason the call ended: `user_hangup`, `agent_hangup`, `completed`, `timeout`, or `error`.
+</ResponseField>
+
+<ResponseField name="started_at" type="string">
+  ISO 8601 timestamp of when the call was answered.
+</ResponseField>
+
+<ResponseField name="ended_at" type="string">
+  ISO 8601 timestamp of when the call ended.
+</ResponseField>
+
+<ResponseField name="created_at" type="string" required>
+  ISO 8601 timestamp of when the call record was created.
+</ResponseField>
+
+<ResponseField name="transcript" type="string">
+  Full conversation transcript as a plain-text string with speaker labels and timestamps.
+</ResponseField>
+
+<ResponseField name="enhanced_transcript" type="string">
+  Processed version of the transcript with additional formatting or corrections.
+</ResponseField>
+
+<ResponseField name="summary" type="string">
+  AI-generated summary of the call. Available after post-call analysis completes.
+</ResponseField>
+
+<ResponseField name="analysis_data" type="object">
+  Structured data extracted from the call by post-call analysis. Keyed by the field names you configured on the agent.
+</ResponseField>
+
+<ResponseField name="dynamic_variables" type="object">
+  The key-value pairs that were passed when the call was initiated via `dynamicVariables`.
+</ResponseField>
+
+<ResponseField name="agents" type="object">
+  Metadata about the agent that handled the call.
+
+  <Expandable title="agents properties">
+    <ResponseField name="agents.agent_name" type="string">
+      Display name of the agent.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="phone_numbers" type="object">
+  Metadata about the workspace phone number used for the call.
+
+  <Expandable title="phone_numbers properties">
+    <ResponseField name="phone_numbers.phone_number" type="string">
+      The phone number in E.164 format.
+    </ResponseField>
+    <ResponseField name="phone_numbers.friendly_name" type="string">
+      The display name assigned to this number in the workspace.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example response
+
+```json
+{
+  "id": "772g0622-g41d-63f6-c938-668877662222",
+  "call_sid": "CAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "call_type": "outbound",
+  "from_number": "+1987654321",
+  "to_number": "+1234567890",
+  "status": "completed",
+  "duration": 245,
+  "disconnection_reason": "agent_hangup",
+  "started_at": "2024-01-15T10:30:00Z",
+  "ended_at": "2024-01-15T10:34:05Z",
+  "created_at": "2024-01-15T10:29:55Z",
+  "transcript": "Agent: Hello, how can I help you today?\nUser: I'd like to check on my order...",
+  "enhanced_transcript": "...",
+  "summary": "Customer called about order status. Issue was resolved — order ships tomorrow.",
+  "analysis_data": {
+    "issue_resolved": true,
+    "follow_up_required": false
+  },
+  "dynamic_variables": {
+    "customer_name": "John Doe",
+    "order_id": "ORD-12345"
+  },
+  "agents": {
+    "agent_name": "Customer Support Agent"
+  },
+  "phone_numbers": {
+    "phone_number": "+1987654321",
+    "friendly_name": "Main Support Line"
+  }
+}
+```
+
+## Error responses
+
+| Status | Description |
+|--------|-------------|
+| `401` | Invalid or missing API key |
+| `404` | Call not found — verify the `callId` belongs to your workspace |
+| `500` | Internal server error |

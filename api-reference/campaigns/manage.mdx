@@ -1,0 +1,359 @@
+---
+title: "Campaign actions — resume, pause, archive"
+sidebarTitle: "Manage campaigns"
+description: "Resume, pause, archive, and update existing Verbeo campaigns. Monitor calling progress and contact status with status and statistics endpoints."
+---
+
+After [creating a campaign](/api-reference/campaigns/create), you use these action endpoints to control its lifecycle and monitor progress. All management actions are POST requests with a JSON body containing the `campaign_id`. The base URL for all campaign endpoints is the same as for creation.
+
+<Note>
+  All campaign management endpoints share the same base URL:
+  `https://api.verbeo.ai/campaigns`
+</Note>
+
+## Resume (start or unpause)
+
+Starts a `draft` campaign or resumes a `paused` campaign. This is how you trigger calling to begin after creation.
+
+```
+POST https://api.verbeo.ai/campaigns/resume
+```
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign to start or resume.
+</ParamField>
+
+<CodeGroup>
+
+```bash Start a draft campaign
+curl -X POST "https://api.verbeo.ai/campaigns/resume" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff"}'
+```
+
+```bash Resume a paused campaign
+curl -X POST "https://api.verbeo.ai/campaigns/resume" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"campaign_id": "YOUR_CAMPAIGN_ID"}'
+```
+
+</CodeGroup>
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+    "status": "in-progress"
+  },
+  "message": "Campaign resumed successfully"
+}
+```
+
+After calling resume, the campaign orchestrator starts dialing contacts automatically, respecting your workspace's concurrency limit.
+
+---
+
+## Pause
+
+Temporarily stops an `in-progress` campaign. Calls that are already active complete normally. No new calls are placed until you resume the campaign.
+
+```
+POST https://api.verbeo.ai/campaigns/pause
+```
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign to pause.
+</ParamField>
+
+```bash
+curl -X POST "https://api.verbeo.ai/campaigns/pause" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"campaign_id": "YOUR_CAMPAIGN_ID"}'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "YOUR_CAMPAIGN_ID",
+    "status": "paused"
+  },
+  "message": "Campaign paused successfully"
+}
+```
+
+---
+
+## Archive (cancel)
+
+Permanently cancels a campaign. All pending and scheduled contacts are marked as `cancelled`. This action cannot be undone.
+
+```
+POST https://api.verbeo.ai/campaigns/archive
+```
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign to archive.
+</ParamField>
+
+```bash
+curl -X POST "https://api.verbeo.ai/campaigns/archive" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"campaign_id": "YOUR_CAMPAIGN_ID"}'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "YOUR_CAMPAIGN_ID",
+    "status": "cancelled"
+  },
+  "message": "Campaign archived successfully"
+}
+```
+
+---
+
+## Update
+
+Updates the name, retry settings, or scheduled start time of a campaign. Only campaigns in `draft` or `scheduled` status can be updated.
+
+```
+POST https://api.verbeo.ai/campaigns/update
+```
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign to update.
+</ParamField>
+
+<ParamField body="campaign_name" type="string">
+  New display name for the campaign.
+</ParamField>
+
+<ParamField body="max_retries" type="number">
+  New maximum number of retry attempts. Range: `0` to `6`.
+</ParamField>
+
+<ParamField body="retry_intervals" type="number[]">
+  New retry wait times in minutes.
+</ParamField>
+
+<ParamField body="scheduled_at" type="string">
+  New scheduled start time as an ISO 8601 UTC timestamp.
+</ParamField>
+
+<CodeGroup>
+
+```bash Update retry settings
+curl -X POST "https://api.verbeo.ai/campaigns/update" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_id": "YOUR_CAMPAIGN_ID",
+    "max_retries": 3,
+    "retry_intervals": [5, 15, 60]
+  }'
+```
+
+```bash Reschedule
+curl -X POST "https://api.verbeo.ai/campaigns/update" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_id": "YOUR_CAMPAIGN_ID",
+    "scheduled_at": "2026-02-20T14:00:00Z"
+  }'
+```
+
+</CodeGroup>
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "YOUR_CAMPAIGN_ID",
+    "campaign_name": "Q1 Sales Outreach",
+    "status": "draft",
+    "max_retries": 3,
+    "retry_intervals": [5, 15, 60],
+    "updated_at": "2026-02-10T14:00:00Z"
+  },
+  "message": "Campaign updated successfully"
+}
+```
+
+---
+
+## Get status
+
+Returns high-level status and call count metrics for a campaign.
+
+```
+POST https://api.verbeo.ai/campaigns/status
+```
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign.
+</ParamField>
+
+```bash
+curl -X POST "https://api.verbeo.ai/campaigns/status" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"campaign_id": "YOUR_CAMPAIGN_ID"}'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "YOUR_CAMPAIGN_ID",
+    "campaign_name": "Q1 Sales Outreach",
+    "status": "in-progress",
+    "total_contacts": 100,
+    "completed_calls": 45,
+    "successful_calls": 38,
+    "failed_calls": 7,
+    "started_at": "2026-02-10T10:00:00Z",
+    "completed_at": null,
+    "scheduled_at": "2026-02-10T10:00:00Z",
+    "created_at": "2026-02-09T15:00:00Z",
+    "updated_at": "2026-02-10T11:30:00Z"
+  }
+}
+```
+
+---
+
+## Get statistics
+
+Returns detailed statistics including a breakdown of each contact status. Use this for progress monitoring.
+
+```
+POST https://api.verbeo.ai/campaigns/stats
+```
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign.
+</ParamField>
+
+```bash
+curl -X POST "https://api.verbeo.ai/campaigns/stats" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"campaign_id": "YOUR_CAMPAIGN_ID"}'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "YOUR_CAMPAIGN_ID",
+    "campaign_name": "Q1 Sales Outreach",
+    "status": "in-progress",
+    "total_contacts": 100,
+    "completed_calls": 45,
+    "successful_calls": 38,
+    "failed_calls": 7,
+    "contact_status_breakdown": {
+      "pending": 50,
+      "calling": 5,
+      "completed": 38,
+      "failed": 7,
+      "retry_scheduled": 0,
+      "no-answer": 0,
+      "busy": 0,
+      "cancelled": 0
+    },
+    "started_at": "2026-02-10T10:00:00Z",
+    "completed_at": null,
+    "max_retries": 2,
+    "retry_intervals": [10, 30],
+    "created_at": "2026-02-09T15:00:00Z"
+  }
+}
+```
+
+---
+
+## Complete workflow example
+
+The following shows the full lifecycle of a campaign from creation to completion:
+
+```bash
+# 1. Create the campaign
+CREATE=$(curl -s -X POST "https://api.verbeo.ai/campaigns/create" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_name": "Weekly Sales Push",
+    "phone_number": "+12629779611",
+    "agent_id": "YOUR_AGENT_ID",
+    "contacts": [{"phone_number": "+1234567890"}],
+    "max_retries": 2,
+    "retry_intervals": [15, 60]
+  }')
+
+CAMPAIGN_ID=$(echo $CREATE | jq -r '.data.campaign_id')
+
+# 2. Start calling
+curl -X POST "https://api.verbeo.ai/campaigns/resume" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"campaign_id\": \"$CAMPAIGN_ID\"}"
+
+# 3. Monitor progress
+curl -X POST "https://api.verbeo.ai/campaigns/stats" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"campaign_id\": \"$CAMPAIGN_ID\"}"
+
+# 4. Pause if needed
+curl -X POST "https://api.verbeo.ai/campaigns/pause" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"campaign_id\": \"$CAMPAIGN_ID\"}"
+
+# 5. Resume when ready
+curl -X POST "https://api.verbeo.ai/campaigns/resume" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"campaign_id\": \"$CAMPAIGN_ID\"}"
+```
+
+## Error responses
+
+All management endpoints return errors in this format:
+
+```json
+{
+  "success": false,
+  "error": "Campaign not found",
+  "code": "CAMPAIGN_NOT_FOUND"
+}
+```
+
+| Code | Status | Description |
+|------|--------|-------------|
+| `UNAUTHORIZED` | 401 | Invalid or missing API key |
+| `CAMPAIGN_NOT_FOUND` | 404 | Campaign ID not found in workspace |
+| `INVALID_STATUS` | 400 | Operation not allowed for the campaign's current status — only `draft` and `scheduled` campaigns can be updated |
+| `UPDATE_FAILED` | 500 | Internal error updating campaign |

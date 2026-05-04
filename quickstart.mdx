@@ -1,0 +1,167 @@
+---
+title: "Get started with Verbeo"
+description: "Sign up, create your first AI voice agent, make an outbound call, and review the results — all in under 5 minutes."
+---
+
+This guide walks you through the fastest path to a working AI phone agent. By the end, you will have created an agent, placed a real outbound call with it, and retrieved the call results — using nothing but the Verbeo API.
+
+<Steps>
+
+<Step title="Sign up and get your API key">
+
+Go to [verbeo.ai](https://verbeo.ai) and create an account. You can sign up with email and password or continue with Google.
+
+Once you are logged in, navigate to **Settings → API Keys** and generate a new key. You will use this key to authenticate every API request.
+
+<Note>
+  Verbeo has two key types: **private keys** (prefix `vbr_`) for the Calls API and **public keys** (prefix `vbr_pub_`) for the Agents API. For this quickstart, a private key covers both. See [Authentication](/authentication) for details.
+</Note>
+
+Copy your key and store it somewhere safe — it is only shown once.
+
+</Step>
+
+<Step title="Create an agent">
+
+An agent is the AI entity that handles your phone calls. At minimum, all you need to provide is a name — Verbeo fills in sensible defaults for everything else.
+
+Send a `POST` request to `/agents` with your API key:
+
+```bash
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "My First Agent"
+  }'
+```
+
+A successful response returns `201 Created` with the new agent's details:
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
+  "agent_name": "My First Agent",
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z",
+  "config": {
+    "systemPrompt": "You are a friendly and helpful AI assistant.",
+    "voice": {
+      "voiceId": "Zephyr"
+    },
+    "toolIds": [],
+    "fileSearchStoreIds": [],
+    "nativeTools": {},
+    "settings": {
+      "initialMessage": { "enabled": true },
+      "postCallAnalysis": { "enabled": false, "fields": [] },
+      "maxCallDuration": 600,
+      "endCallOnSilence": false,
+      "voicemailDetection": { "enabled": false, "action": "hangup" },
+      "webhookUrl": ""
+    }
+  }
+}
+```
+
+**Save the `id` field** from this response — you need it to place a call in the next step.
+
+</Step>
+
+<Step title="Make an outbound call">
+
+With your agent created, you can now place a real phone call. You need three things:
+
+- `toNumber` — the phone number you want to call, in E.164 format (e.g. `+1234567890`)
+- `agentId` — the `id` returned when you created the agent
+- `fromNumber` — a provisioned Verbeo phone number in your workspace, in E.164 format
+
+<Note>
+  The Calls API requires a **private** API key with prefix `vbr_`. Public keys are not accepted by this endpoint.
+</Note>
+
+```bash
+curl -X POST "https://api.verbeo.ai/calls" \
+  -H "Authorization: Bearer YOUR_PRIVATE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "toNumber": "+1234567890",
+    "agentId": "550e8400-e29b-41d4-a716-446655440000",
+    "fromNumber": "+1987654321"
+  }'
+```
+
+A successful response confirms the call has been queued:
+
+```json
+{
+  "success": true,
+  "callId": "772g0622-g41d-63f6-c938-668877662222",
+  "callSid": "CAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "status": "queued",
+  "toNumber": "+1234567890",
+  "fromNumber": "+1987654321",
+  "agentId": "550e8400-e29b-41d4-a716-446655440000",
+  "agentName": "My First Agent",
+  "message": "Outbound call initiated successfully"
+}
+```
+
+**Save the `callId`** — you will use it to retrieve the call results.
+
+</Step>
+
+<Step title="View call results">
+
+After the call ends, you can retrieve the transcript, duration, status, and any post-call analysis data by fetching the call record.
+
+```bash
+curl -X GET "https://api.verbeo.ai/calls?callId=772g0622-g41d-63f6-c938-668877662222" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+The response includes the full call record:
+
+```json
+{
+  "id": "772g0622-g41d-63f6-c938-668877662222",
+  "call_type": "outbound",
+  "from_number": "+1987654321",
+  "to_number": "+1234567890",
+  "status": "completed",
+  "duration": 42,
+  "started_at": "2024-01-15T10:30:00Z",
+  "ended_at": "2024-01-15T10:30:42Z",
+  "transcript": "Agent: Hello! How can I help you today?...",
+  "summary": "Brief call where the agent greeted the contact.",
+  "agents": {
+    "agent_name": "My First Agent"
+  }
+}
+```
+
+You can also view all of this in the Verbeo dashboard under **Calls**.
+
+</Step>
+
+</Steps>
+
+## What's next
+
+Now that you have a working agent and your first call, you can customize the agent further or explore more advanced capabilities:
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Understand private vs. public keys and how to keep them secure.
+  </Card>
+  <Card title="Build your first agent" icon="robot" href="/guides/build-your-first-agent">
+    Configure a system prompt, voice, native tools, and post-call analysis.
+  </Card>
+  <Card title="Post-call analytics" icon="chart-bar" href="/guides/post-call-analysis">
+    Extract structured data from every conversation automatically.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/overview">
+    Full reference for every endpoint, field, and response.
+  </Card>
+</CardGroup>

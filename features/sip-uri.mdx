@@ -1,0 +1,194 @@
+---
+title: "Use SIP URI to connect phone systems"
+description: "Connect Verbeo agents to PBX systems, SIP trunks, and telephony infrastructure using an automatically generated SIP URI."
+---
+
+SIP URI lets you dial a Verbeo agent from any SIP-compatible device or platform — a PBX, a SIP trunk, a softphone, or your own telephony infrastructure — without going through the Verbeo outbound call API. When you enable SIP on an agent, Verbeo automatically provisions a unique SIP URI backed by Twilio that routes calls directly to that agent.
+
+## Enable SIP URI
+
+Set `sipUri: true` when creating or updating an agent. SIP credentials are provisioned automatically — no extra configuration is needed.
+
+### Create an agent with SIP enabled
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "Support Agent",
+    "sipUri": true,
+    "config": {
+      "systemPrompt": "You are a helpful support agent.",
+      "voice": {
+        "voiceId": "Zephyr"
+      }
+    }
+  }'
+```
+
+```json Request body
+{
+  "agentName": "Support Agent",
+  "sipUri": true,
+  "config": {
+    "systemPrompt": "You are a helpful support agent.",
+    "voice": {
+      "voiceId": "Zephyr"
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+### Enable SIP on an existing agent
+
+```bash cURL
+curl -X PATCH "https://api.verbeo.ai/agents?agentId=YOUR_AGENT_ID" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sipUri": true
+  }'
+```
+
+## Read the SIP credentials from the response
+
+When `sipUri` is `true`, the API response includes the SIP URI and related credentials.
+
+```json Response (201 Created)
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "agent_name": "Support Agent",
+  "sip_uri": "sip:verbeo-ai-5eebc895@verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com",
+  "twilio_sip_username": "verbeo-ai-5eebc895",
+  "twilio_sip_domain": "verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com",
+  "twilio_sip_credential_sid": "CRxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "twilio_sip_credential_list_sid": "CLxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "twilio_sip_domain_sid": "SDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+The fields you'll use most often are:
+
+| Field | Description | Example |
+|---|---|---|
+| `sip_uri` | Complete address to dial | `sip:verbeo-ai-5eebc895@verbeo-ai-...sip.twilio.com` |
+| `twilio_sip_username` | SIP username for authentication | `verbeo-ai-5eebc895` |
+| `twilio_sip_domain` | SIP server hostname | `verbeo-ai-5eebc895dd...sip.twilio.com` |
+
+<Note>
+  SIP fields only appear in the response when `sipUri` is `true`. If you omit the field or set it to `false`, no SIP credentials are generated.
+</Note>
+
+## Dial the SIP URI
+
+Point your PBX, SIP trunk, or softphone at the complete `sip_uri` from the response:
+
+```
+sip:verbeo-ai-5eebc895@verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com
+```
+
+Any SIP 2.0-compatible client can dial this address. The call is routed to the Verbeo agent in real time.
+
+## Pass dynamic variables via SIP headers
+
+You can send caller-specific data to the agent at dial time by appending variables as query parameters to the **domain** portion of the SIP URI. The agent can then reference these values in its system prompt.
+
+**Format:**
+
+```
+sip:USERNAME@DOMAIN?X-variable_name=value&X-another_variable=value
+```
+
+**Rules:**
+
+- Append parameters to the domain part (after `@`), not to the `sip:` scheme.
+- Every variable name **must** start with `X-` (capital X, followed by a hyphen).
+- Reference variables in your system prompt **without** the `X-` prefix: `{{variable_name}}`.
+- URL-encode any special characters in values — for example, spaces become `%20`.
+
+**Example — passing customer name and order ID:**
+
+```
+sip:verbeo-ai-5eebc895@verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com?X-customer_name=John%20Doe&X-order_id=12345
+```
+
+**Corresponding system prompt reference:**
+
+```
+You are speaking with {{customer_name}}. Their order ID is {{order_id}}.
+```
+
+<Warning>
+  If variable names do not start with `X-`, they will not be forwarded to the agent. Double-check the prefix if variables appear blank during a call.
+</Warning>
+
+### Encoding special characters
+
+URL-encode any character that is not a letter, digit, hyphen, underscore, or period.
+
+| Character | Encoded |
+|---|---|
+| Space | `%20` |
+| `@` | `%40` |
+| `&` | `%26` |
+| `=` | `%3D` |
+| `+` | `%2B` |
+
+## End-to-end example
+
+<Steps>
+  <Step title="Create the agent with SIP enabled">
+    ```bash cURL
+    curl -X POST "https://api.verbeo.ai/agents" \
+      -H "Authorization: Bearer YOUR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "agentName": "Support Agent",
+        "sipUri": true,
+        "config": {
+          "systemPrompt": "You are speaking with {{customer_name}}. Help them with their support request.",
+          "voice": { "voiceId": "Zephyr" }
+        }
+      }'
+    ```
+  </Step>
+  <Step title="Copy the SIP domain from the response">
+    ```json
+    {
+      "sip_uri": "sip:verbeo-ai-5eebc895@verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com",
+      "twilio_sip_domain": "verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com"
+    }
+    ```
+  </Step>
+  <Step title="Dial from your PBX or SIP trunk">
+    To pass a customer name, dial:
+    ```
+    sip:verbeo-ai-5eebc895@verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com?X-customer_name=John%20Doe
+    ```
+    The agent's prompt receives `{{customer_name}}` as `John Doe` for the duration of the call.
+  </Step>
+</Steps>
+
+## Security recommendations
+
+Keep your SIP credentials protected. A leaked SIP URI can allow anyone to call your agent and consume your credits.
+
+<AccordionGroup>
+  <Accordion title="Keep credentials private">
+    Do not embed `sip_uri` or `twilio_sip_username` in client-side code or public repositories. Treat them like API keys.
+  </Accordion>
+  <Accordion title="Use TLS transport when possible">
+    Configure your SIP client or PBX to connect over TLS (port 5061) rather than plain UDP. TLS encrypts the SIP signaling, preventing interception of call setup metadata and dynamic variable values.
+  </Accordion>
+  <Accordion title="Restrict which systems can dial the URI">
+    Where your PBX or SIP trunk supports IP allowlisting, restrict inbound SIP INVITE requests to trusted source addresses. This prevents unauthorized callers from reaching your agent even if the URI is exposed.
+  </Accordion>
+  <Accordion title="Rotate credentials if compromised">
+    If you suspect your SIP URI has been shared publicly, delete the agent and recreate it with `sipUri: true` to generate a new set of credentials.
+  </Accordion>
+</AccordionGroup>

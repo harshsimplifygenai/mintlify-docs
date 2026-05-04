@@ -1,0 +1,93 @@
+---
+title: "Phone Numbers"
+description: "Provision numbers through the Verbeo dashboard, assign them to agents for inbound calls, and use them as the caller ID for outbound calls."
+---
+
+Phone numbers in Verbeo are the bridge between the public telephone network and your AI agents. You provision numbers directly through the Verbeo dashboard, then assign them to agents so calls can flow in both directions. Every number you provision is yours to use for inbound call routing, outbound call initiation, or both.
+
+## Provisioning a number
+
+All phone number management happens in the **Phone Numbers** page of the Verbeo dashboard. From there you can add new numbers, assign them to agents, and remove numbers you no longer need.
+
+<Steps>
+  <Step title="Open Phone Numbers">
+    Navigate to **Phone Numbers** in the left sidebar of your Verbeo dashboard.
+  </Step>
+  <Step title="Add a number">
+    Click **Add Number** and follow the prompts to provision a new phone number for your workspace.
+  </Step>
+  <Step title="Assign to an agent">
+    Once provisioned, open the number's settings and assign it to the agent that should handle inbound calls to that number.
+  </Step>
+</Steps>
+
+<Note>
+  You can also initiate outbound calls directly from the Phone Numbers page using the **Make Call** button, without writing any code.
+</Note>
+
+## Inbound calls
+
+When a caller dials one of your provisioned numbers, Verbeo routes the call to whichever agent is assigned to that number. The assigned agent picks up immediately and begins the conversation according to its system prompt and settings.
+
+Each provisioned number can be assigned to exactly one agent at a time. If you want different callers to reach different agents, provision a separate number for each agent.
+
+## Outbound calls
+
+For outbound calls initiated through the [Calls API](/api-reference/calls/initiate), the `fromNumber` field must be a phone number you have already provisioned in your Verbeo workspace. You cannot use an arbitrary number as the caller ID — it must belong to your workspace.
+
+```json
+{
+  "toNumber": "+12025551234",
+  "agentId": "550e8400-e29b-41d4-a716-446655440000",
+  "fromNumber": "+19875554321"
+}
+```
+
+If `fromNumber` is not found in your workspace, the API returns a `404` error.
+
+<Warning>
+  The Calls API requires a **private** API key (prefix `vbr_`). Public keys (`vbr_pub_`) cannot be used to initiate calls.
+</Warning>
+
+## E.164 format
+
+All phone numbers in Verbeo — whether you're provisioning them, assigning them as `fromNumber`, or setting a `staticDestination` for call transfers — must be in **E.164 format**.
+
+E.164 is an international standard for phone number formatting:
+
+- Starts with a `+` sign
+- Followed by the country code (no leading zero)
+- Followed by the subscriber number, with no spaces, dashes, or parentheses
+
+<CodeGroup>
+
+```text Valid E.164 examples
++12025551234      (US)
++441234567890     (UK)
++61412345678      (Australia)
++4915123456789    (Germany)
+```
+
+```text Invalid formats
+(202) 555-1234    (missing + and country code)
++1 202 555 1234   (contains spaces)
+001-202-555-1234  (trunk prefix format)
+12025551234       (missing + prefix)
+```
+
+</CodeGroup>
+
+<Tip>
+  Most phone number libraries (like `libphonenumber`) can convert local formats to E.164 automatically. If you're building a workflow that accepts user-entered phone numbers, normalize them to E.164 before passing them to Verbeo.
+</Tip>
+
+## Inbound vs. outbound: summary
+
+<CardGroup cols={2}>
+  <Card title="Inbound" icon="phone-incoming">
+    A caller dials your provisioned number. Verbeo routes the call to the assigned agent automatically. No API call required.
+  </Card>
+  <Card title="Outbound" icon="phone-outgoing">
+    Your code calls the [Calls API](/api-reference/calls/initiate) with a `toNumber`, `agentId`, and `fromNumber`. The `fromNumber` must be a provisioned number in E.164 format.
+  </Card>
+</CardGroup>
