@@ -60,24 +60,6 @@
             ]
           },
           {
-            "group": "Agents",
-            "pages": [
-              "api-reference/agents/create",
-              "api-reference/agents/list",
-              "api-reference/agents/get",
-              "api-reference/agents/update",
-              "api-reference/agents/delete"
-            ]
-          },
-          {
-            "group": "Calls",
-            "pages": [
-              "api-reference/calls/initiate",
-              "api-reference/calls/list",
-              "api-reference/calls/get"
-            ]
-          },
-          {
             "group": "Campaigns",
             "pages": [
               "api-reference/campaigns/create",
@@ -88,14 +70,7 @@
               "api-reference/campaigns/resume",
               "api-reference/campaigns/archive"
             ]
-          },
-          {
-            "group": "Webhooks",
-            "pages": [
-              "api-reference/webhooks/events",
-              "api-reference/webhooks/tool-calls"
-            ]
-          }
+          } 
         ]
       }
     ]
