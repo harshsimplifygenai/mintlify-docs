@@ -1,0 +1,212 @@
+---
+title: "Connect your backend with custom tools"
+description: "Give your agent real-time access to your systems by building HTTP tool endpoints it can call mid-call to look up data or take actions."
+---
+
+Custom tools let your agent reach into your own backend during a live call. The caller says something — "What's the status of my order?" or "Book me for Thursday at 2 PM" — the agent decides which tool to call, builds the arguments from the conversation, sends a `POST` to your HTTPS endpoint, and speaks the result back to the caller within seconds. No human intervention, no call transfers required.
+
+Typical uses include customer lookups, appointment booking, CRM updates, inventory checks, and knowledge base queries.
+
+## How a tool call works
+
+```text
+Caller speaks → AI decides to call tool → POST to your endpoint → AI speaks result
+                                                ↓
+                                      You respond in < 10 s
+```
+
+| Phase | Typical latency |
+|---|---|
+| AI decision | < 500 ms after caller finishes speaking |
+| Your handler | < 3 s ideal — 10 s hard limit |
+| Agent speaks the result | ~1 s after receiving your JSON |
+
+The caller waits in real time throughout this flow. Keep your handler fast.
+
+## Add a tool in the Agent Editor
+
+In the dashboard, open your agent and navigate to **Tools → Add Tool**. Fill in the following fields:
+
+- **Tool name** — a `snake_case` identifier the AI uses internally (e.g. `lookup_customer`, `book_appointment`). Keep it short and descriptive.
+- **Description** — plain-English instructions that tell the AI *when* to call this tool. Be explicit. Start with "Call this tool when…" and list trigger phrases. The description is how the AI decides whether to invoke the tool.
+- **HTTP method** — use `POST` for writes and lookups that need call context; use `GET` for simple lookups.
+- **Endpoint URL** — your HTTPS URL. Plain HTTP is rejected.
+- **Headers** — add auth headers here (e.g. `Authorization: Bearer your-secret`). They are sent verbatim on every request.
+- **Argument schema** — define the arguments the AI should extract from the conversation (see below).
+
+<Tip>
+  The description is the single most important field. A vague description like "Look up customer info" leads to the AI calling the tool at the wrong time or not at all. A precise description like "Call this tool at the start of every call to look up the customer by their phone number" gives the AI a clear trigger.
+</Tip>
+
+## Argument schema
+
+The argument schema tells the AI what data to extract from the conversation and pass to your endpoint. Each argument has:
+
+| Field | Options | Description |
+|---|---|---|
+| Name | — | JSON key in snake_case (e.g. `appointment_date`) |
+| Type | `string`, `number`, `boolean`, `enum` | Determines JSON type sent to your handler |
+| Description | — | Instructions the AI follows when extracting this value. Be specific. |
+| Required | true / false | If true, the AI asks the caller for the value before invoking |
+| Choices | — | For `enum` type only — the allowed values |
+
+**Writing good argument descriptions:**
+
+```text
+appointment_date — The date the caller requested, in ISO-8601 format (YYYY-MM-DD).
+Convert relative phrases like "tomorrow" or "next Monday" to an absolute date
+using today's date. If the caller is ambiguous, ask them to clarify before calling
+the tool.
+```
+
+Avoid one-word descriptions like "date" — the AI will guess, and often guess wrong.
+
+## Implement your endpoint
+
+Your handler receives a `POST` with the `tool_invoked` event envelope. Parse `payload.args` for the extracted arguments and `payload.call` for call metadata including the live transcript.
+
+Here is a minimal Node.js/Express example that handles an appointment booking tool:
+
+```javascript
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+app.post('/tools/book-appointment', async (req, res) => {
+  // Verify the request is from Verbeo
+  const authHeader = req.headers['authorization'];
+  if (authHeader !== 'Bearer your-shared-secret') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { event, payload } = req.body;
+  if (event !== 'tool_invoked') {
+    return res.status(400).json({ error: 'Unexpected event type' });
+  }
+
+  const { appointment_date, appointment_time, customer_name } = payload.args;
+
+  try {
+    // Call your calendar system
+    const booking = await createBooking({
+      date: appointment_date,
+      time: appointment_time,
+      name: customer_name,
+    });
+
+    // Return a short result the AI can speak back
+    res.json({
+      msg: `Booked for ${customer_name} on ${appointment_date} at ${appointment_time}. Confirmation ID is ${booking.id}.`,
+      data: { booking_id: booking.id },
+    });
+  } catch (err) {
+    res.json({
+      error: `Booking system unavailable. Apologize and offer to call back with a confirmation.`,
+    });
+  }
+});
+
+app.listen(3000);
+```
+
+## Response format
+
+Return JSON within 10 seconds. Your response shapes what the agent says next.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `msg` | string | One-sentence summary. The agent uses this as the basis for what it says. Keep it concise and natural-language-friendly. |
+| `data` | object | Optional structured data the agent may reference. |
+| `say` | string | Optional verbatim text the agent speaks. Use sparingly. |
+| `error` | string | Set on failure. The agent apologizes and mentions the error gracefully. |
+
+**Examples:**
+
+```json
+// Successful booking
+{
+  "msg": "Appointment confirmed for Thursday April 24th at 2 PM. Booking ID is BK-7821.",
+  "data": { "booking_id": "BK-7821" }
+}
+
+// Nothing found
+{
+  "msg": "No account found for that phone number. Ask the caller to spell their email address."
+}
+
+// Hard error
+{
+  "error": "Calendar service is down. Apologize and offer to send a confirmation by text."
+}
+```
+
+<Warning>
+  Always return valid JSON, even on failure. An empty body or non-JSON response is treated as an error — the agent apologizes and the call continues without the tool result.
+</Warning>
+
+## The `tool_invoked` webhook payload
+
+This is the full payload your endpoint receives on every tool invocation:
+
+```json
+{
+  "event": "tool_invoked",
+  "call_id": "8eb0e5f2-e8b5-44cb-beba-9b802f39c340",
+  "agent_id": "a2e0146d-6b37-4b09-b33b-f2c72f22684d",
+  "timestamp": "2026-04-18T12:19:20.789Z",
+  "payload": {
+    "tool_name": "book_appointment",
+    "args": {
+      "customer_name": "Sarah Chen",
+      "appointment_date": "2026-04-19",
+      "appointment_time": "11:00",
+      "appointment_type": "service"
+    },
+    "call": {
+      "call_type": "outbound",
+      "agent_name": "Support Concierge",
+      "workspace_id": "34c4a847-7516-4277-8fc1-1b33ff0126d4",
+      "from_number": "+15550001234",
+      "to_number": "+12125550001",
+      "customer_number": "+12125550001",
+      "dynamic_variables": { "customer_name": "Sarah", "plan": "premium" },
+      "transcript": "[12:18:55] User: I'd like to book a visit.\n[12:19:02] Agent: What day works for you?\n[12:19:08] User: Tomorrow at 11 AM.",
+      "transcript_object": [
+        { "role": "user", "content": "I'd like to book a visit.", "timestamp": "2026-04-18T12:18:55.000Z" },
+        { "role": "agent", "content": "What day works for you?", "timestamp": "2026-04-18T12:19:02.000Z" },
+        { "role": "user", "content": "Tomorrow at 11 AM.", "timestamp": "2026-04-18T12:19:08.000Z" }
+      ]
+    }
+  }
+}
+```
+
+`payload.args` contains exactly the arguments you defined in the schema. `payload.call` gives you the current call state including the live transcript and any dynamic variables you passed at call creation.
+
+## Timeout and error handling
+
+| Failure | Agent behavior |
+|---|---|
+| Non-2xx response | Speaks a generic apology. Tool is not automatically retried. |
+| Response takes > 10 s | Same — the request times out and the agent apologizes. |
+| Malformed JSON | Treated as a non-2xx error. |
+| Empty body | Treated as an error. Always return at least `{"msg": "Done."}`. |
+
+If your real operation takes more than 3 seconds, return an immediate holding message and handle the result asynchronously:
+
+```json
+{ "msg": "Let me look that up — just one moment." }
+```
+
+Then use a follow-up action (SMS, callback, or the next conversational turn) to close the loop.
+
+## Security recommendations
+
+- **Add an auth header** — configure a shared secret in the tool's Headers field (e.g. `Authorization: Bearer your-secret`). Verbeo sends it verbatim on every request. Reject any request missing it.
+- **HTTPS only** — plain HTTP endpoints are rejected at configuration time.
+- **Be idempotent** — network conditions can duplicate requests. Deduplicate by `call_id + tool_name + args`. If you have already processed an identical invocation, return the same response.
+- **Handle PII carefully** — `payload.call.transcript` may contain names, phone numbers, and other personal data. Only log or forward it to systems that meet your privacy requirements.
+
+## Tool invocations in post-call data
+
+Every tool call during a call appears in the `call_analyzed` webhook event — in `payload.data.tools[]` with the full args, result, and timestamp, and inline in `payload.data.transcript[]` with `role: "tool"`. This gives you a complete audit trail of what the agent did on every call.

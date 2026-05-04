@@ -1,0 +1,78 @@
+---
+title: "Verbeo REST API overview"
+description: "A complete reference for the Verbeo REST API. Learn the base URL, request and response formats, versioning policy, rate limits, and how to get support."
+---
+
+The Verbeo REST API gives you programmatic control over every part of the platform — create and manage agents, place and track calls, run batch campaigns, and receive real-time webhook events. All resources are accessible over HTTPS and exchange data as JSON.
+
+## Base URL
+
+Every API request is sent to the following base URL:
+
+```
+https://api.verbeo.ai
+```
+
+The Campaigns API uses a separate base URL:
+
+```
+https://api.verbeo.ai/campaigns
+```
+
+## Request format
+
+Send all request bodies as JSON. Include the `Content-Type: application/json` header on every request that has a body.
+
+```bash
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"agentName": "Support Agent"}'
+```
+
+## Response format
+
+Every response body is JSON. Successful responses return the resource object or a wrapper with `success: true`. Error responses return a structured error object with an `error` field and, where available, an error `code`.
+
+```json
+{
+  "success": false,
+  "error": "Agent not found",
+  "code": "AGENT_NOT_FOUND"
+}
+```
+
+HTTP status codes follow standard conventions:
+
+| Status | Meaning |
+|--------|---------|
+| `200` | Request succeeded |
+| `201` | Resource created |
+| `400` | Bad request — missing or invalid parameters |
+| `401` | Unauthorized — invalid or missing API key |
+| `402` | Payment required — insufficient balance |
+| `403` | Forbidden — account paused |
+| `404` | Not found — resource does not exist |
+| `429` | Too many requests — concurrency limit reached |
+| `500` | Internal server error |
+| `502` | Bad gateway — upstream provider error |
+
+## Authentication
+
+All requests require a Bearer token in the `Authorization` header. See [API authentication and keys](/api-reference/authentication) for full details on key types and which endpoints each key type can access.
+
+## Versioning
+
+The Verbeo API is currently at version 1.0. The API follows an additive compatibility policy: new fields may appear in responses without a breaking-change notice. Fields and endpoints will not be removed or renamed without advance notice.
+
+## Rate limits
+
+Rate limits are applied per workspace. The specific thresholds depend on your plan. Contact [support@verbeo.ai](mailto:support@verbeo.ai) to learn about your workspace limits or to request an increase.
+
+## Support
+
+| Channel | Details |
+|---------|---------|
+| Email | [support@verbeo.ai](mailto:support@verbeo.ai) |
+| Documentation | [docs.verbeo.ai](https://docs.verbeo.ai) |
+| Status | [status.verbeo.ai](https://status.verbeo.ai) |

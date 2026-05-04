@@ -1,0 +1,78 @@
+---
+title: "Authenticate with the Verbeo API"
+description: "Generate API keys from your dashboard and pass them as a Bearer token to authenticate every request to the Verbeo API."
+---
+
+Every request to the Verbeo API must include a valid API key. Verbeo uses API keys as Bearer tokens in the `Authorization` header — there are no session cookies or OAuth flows required for server-to-server requests.
+
+## Getting your API keys
+
+To generate an API key, log in to the Verbeo dashboard and go to **Settings → API Keys**. Click **Generate new key**, give it a descriptive name, and copy the value shown. The key is only displayed once at creation time — store it securely before closing the dialog.
+
+You can generate multiple keys, for example one per environment or one per integration. Each key is scoped to your workspace.
+
+## Key types
+
+Verbeo issues two types of API keys, each with different permissions.
+
+<Note>
+  **Private keys** (prefix `vbr_`) have access to the Calls API and are intended for server-side use only. **Public keys** (prefix `vbr_pub_`) are scoped to the Agents API and are safe to use in less-sensitive contexts. The Calls API will reject requests made with a public key and return `401 Unauthorized`.
+</Note>
+
+| Key type | Prefix | Allowed APIs |
+|---|---|---|
+| Private key | `vbr_` | Agents API, Calls API |
+| Public key | `vbr_pub_` | Agents API only |
+
+Use private keys for any server-side code that places or manages calls. Use public keys where you need read or write access to agents but do not need to initiate calls.
+
+## Passing your key in requests
+
+Include your API key in the `Authorization` header of every request, using the `Bearer` scheme alongside a `Content-Type` header for requests with a body:
+
+```bash
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "agentName": "Support Agent" }'
+```
+
+For `GET` requests, only the `Authorization` header is required:
+
+```bash
+curl -X GET "https://api.verbeo.ai/calls" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+## Error responses
+
+If your key is missing, malformed, or invalid — or if you use a public key on an endpoint that requires a private key — the API returns `401 Unauthorized`:
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+Common causes of a `401` response:
+
+- The `Authorization` header is missing entirely
+- The key has been deleted or rotated in the dashboard
+- You are using a `vbr_pub_` key on the Calls API endpoint
+
+## Security best practices
+
+<Warning>
+  Never expose your private API key in client-side code, public repositories, or frontend JavaScript. Anyone with your private key can initiate calls and incur charges on your account.
+</Warning>
+
+Follow these practices to keep your keys secure:
+
+- **Use environment variables.** Store keys in environment variables (e.g. `VERBEO_API_KEY`) rather than hardcoding them in source files.
+- **Rotate keys regularly.** Generate a new key and delete the old one if you suspect it has been compromised or exposed.
+- **Use separate keys per environment.** Create distinct keys for development, staging, and production so you can revoke one without affecting the others.
+- **Prefer public keys where private access isn't needed.** If your integration only reads or creates agents and never initiates calls, use a `vbr_pub_` key to limit the blast radius of an accidental exposure.
+
+<Tip>
+  If you are building a CI/CD pipeline or serverless function, inject the API key via your platform's secret manager (e.g., AWS Secrets Manager, GitHub Actions secrets, or Vercel environment variables) rather than committing it to your repository.
+</Tip>

@@ -1,0 +1,105 @@
+---
+title: "Knowledge Base for AI Agents"
+description: "Upload documents to a Gemini or Pinecone knowledge base, attach it to your agents, and let them answer caller questions from your own content."
+---
+
+A knowledge base lets your agents answer questions using your own documents — product manuals, FAQs, policy guides, pricing sheets, and more. Instead of trying to pack all of this information into the system prompt, you upload files to a knowledge base store, attach the store to your agent, and Verbeo automatically queries it during calls whenever a caller asks something relevant.
+
+## Knowledge base types
+
+Verbeo supports two types of knowledge base stores. You can create both types from the **Knowledge Base** page in the dashboard.
+
+<CardGroup cols={2}>
+  <Card title="Gemini File Search" icon="file-magnifying-glass">
+    Upload files directly to Google Gemini's managed file search. Verbeo handles chunking and embedding automatically. Best for straightforward document upload with minimal configuration.
+  </Card>
+  <Card title="Pinecone" icon="database">
+    Store document embeddings in a Pinecone vector database. Gives you fast semantic search at scale and is the better choice for large document collections. Uses Google's `text-embedding-004` model.
+  </Card>
+</CardGroup>
+
+### Choosing between Gemini and Pinecone
+
+| | Gemini File Search | Pinecone |
+|---|---|---|
+| Max file size | 50 MB | 10 MB |
+| Best for | Quick setup, simple docs | Large datasets, fast search |
+| Embedding | Automatic | Google text-embedding-004 |
+| Processing | Synchronous | Asynchronous (chunked) |
+| Supported formats | PDF, TXT, DOCX, and more | PDF, TXT, MD, DOCX, CSV, JSON |
+
+<Tip>
+  Start with Gemini File Search if you're getting set up quickly. Switch to Pinecone when your document collection grows or you need more control over chunking and metadata.
+</Tip>
+
+## Creating a knowledge base
+
+<Steps>
+  <Step title="Open Knowledge Base">
+    Navigate to **Knowledge Base** in the left sidebar of the Verbeo dashboard.
+  </Step>
+  <Step title="Choose a type">
+    Select the **Gemini** tab to create a Gemini File Search store, or the **Pinecone** tab to create a Pinecone store. Click **New Gemini Folder** or **New Pinecone Folder**.
+  </Step>
+  <Step title="Name your store">
+    Give the store a descriptive name that reflects its contents — for example, "Product Catalog" or "Support FAQs". This helps you identify it when attaching it to agents.
+  </Step>
+  <Step title="Upload documents">
+    Open the store and click **Upload Documents**. You can upload multiple files. Verbeo processes them and makes them searchable.
+  </Step>
+  <Step title="Generate a description (Pinecone only)">
+    For Pinecone stores, click **Generate Description** to let Verbeo automatically write a semantic routing description. This description tells the agent when to query this knowledge base during a call.
+  </Step>
+</Steps>
+
+### Document processing status
+
+After you upload a file, it moves through the following states before it becomes searchable:
+
+```text
+uploading → processing → completed
+                ↓
+             failed
+```
+
+If a document reaches `failed` status, check that the file is within the size limit and in a supported format.
+
+## Attaching a knowledge base to an agent
+
+Once your store is ready, attach it to an agent by including its store ID in the `fileSearchStoreIds` array of the agent's configuration.
+
+```json
+{
+  "agentName": "Product Support Agent",
+  "config": {
+    "systemPrompt": "You are a product support agent. Use the knowledge base to answer questions about our products accurately.",
+    "fileSearchStoreIds": ["your-store-uuid-here"],
+    "voice": {
+      "voiceId": "Zephyr"
+    }
+  }
+}
+```
+
+You can attach multiple stores to the same agent by adding more IDs to the array.
+
+<Note>
+  `fileSearchStoreIds` accepts store IDs for both Gemini and Pinecone stores. Verbeo queries the appropriate backend automatically based on the store type.
+</Note>
+
+## How agents use the knowledge base
+
+When a caller asks a question during a call, the agent detects that the question may be answerable from your documents and queries the attached knowledge base automatically. The agent then uses the retrieved content to formulate an accurate response — without you needing to write any special logic or prompting to trigger the lookup.
+
+You do not need to list every possible question in the system prompt. The knowledge base handles content-specific questions; the system prompt handles persona, tone, and business rules.
+
+## Plan limits
+
+| Plan | Knowledge bases |
+|---|---|
+| Free | 2 total (any combination of Gemini and Pinecone) |
+| Pro | Unlimited |
+
+<Warning>
+  The Free plan limit applies across both store types combined. If you create 1 Gemini store and 1 Pinecone store, you have reached the Free plan limit. Upgrade to Pro for unlimited stores.
+</Warning>

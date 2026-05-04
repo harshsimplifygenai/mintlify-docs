@@ -1,0 +1,400 @@
+---
+title: "POST /agents — Create agent"
+sidebarTitle: "Create agent"
+description: "Create a new AI voice agent in your workspace. Configure the system prompt, voice, native tools, post-call analysis, and call behavior in one request."
+---
+
+Creating an agent is the first step toward placing or receiving calls. You submit a configuration object that controls everything about how the agent behaves — from the voice it uses and the tools it can invoke, to how it handles silence and voicemail. The workspace is automatically inferred from your API key, so you do not need to provide a workspace ID.
+
+## Endpoint
+
+```
+POST https://api.verbeo.ai/agents
+```
+
+## Request body
+
+All fields are optional. Omitting them applies the documented defaults.
+
+<ParamField body="agentName" type="string" default="New Agent">
+  Display name for the agent. Visible in the dashboard and included in call records.
+</ParamField>
+
+<ParamField body="sipUri" type="boolean" default="false">
+  When `true`, Verbeo generates a SIP URI for this agent on creation. The SIP credentials are included in the response and allow the agent to receive inbound SIP calls.
+</ParamField>
+
+<ParamField body="config" type="object">
+  Complete agent configuration. All sub-fields are optional.
+
+  <Expandable title="config properties">
+    <ParamField body="config.systemPrompt" type="string" default="You are a friendly and helpful AI assistant.">
+      Instructions that define the agent's role, behavior, tone, and limitations. Written in natural language. Maximum 5,000 characters.
+    </ParamField>
+
+    <ParamField body="config.voice" type="object">
+      Voice configuration.
+
+      <Expandable title="voice properties">
+        <ParamField body="config.voice.voiceId" type="string" default="Zephyr">
+          Voice identifier. Must be one of the supported Google Gemini voice IDs. Available values include: `Zephyr`, `Puck`, `Charon`, `Kore`, `Fenrir`, `Leda`, `Orus`, `Aoede`, `Callirrhoe`, `Autonoe`, `Enceladus`, `Iapetus`, `Umbriel`, `Algieba`, `Despina`, `Erinome`, `Algenib`, `Rasalgethi`, `Laomedeia`, `Achernar`, `Alnilam`, `Schedar`, `Gacrux`, `Pulcherrima`, `Achird`, `Zubenelgenubi`, `Vindemiatrix`, `Sadachbia`, `Sadaltager`, `Sulafat`.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+
+    <ParamField body="config.toolIds" type="string[]">
+      UUIDs of custom tools created in your workspace that this agent can invoke during calls.
+    </ParamField>
+
+    <ParamField body="config.fileSearchStoreIds" type="string[]">
+      UUIDs of knowledge base stores to attach to this agent. The agent can search these stores to answer questions from uploaded documents.
+    </ParamField>
+
+    <ParamField body="config.nativeTools" type="object">
+      Built-in tools provided by Verbeo. Each tool is configured independently.
+
+      <Expandable title="nativeTools properties">
+        <ParamField body="config.nativeTools.end_call" type="object">
+          Controls the agent's ability to hang up the call.
+
+          <Expandable title="end_call properties">
+            <ParamField body="config.nativeTools.end_call.enabled" type="boolean" required>
+              Whether the end-call tool is active. Recommended: `true`.
+            </ParamField>
+            <ParamField body="config.nativeTools.end_call.description" type="string">
+              Instructions for the agent on when to use this tool. Defaults to a comprehensive hang-up prompt if omitted.
+            </ParamField>
+          </Expandable>
+        </ParamField>
+
+        <ParamField body="config.nativeTools.transfer_call" type="object">
+          Controls the agent's ability to transfer the call to another number.
+
+          <Expandable title="transfer_call properties">
+            <ParamField body="config.nativeTools.transfer_call.enabled" type="boolean" required>
+              Whether the transfer tool is active.
+            </ParamField>
+            <ParamField body="config.nativeTools.transfer_call.mode" type="string" required>
+              Transfer mode: `"static"` transfers to a fixed number; `"dynamic"` lets the agent determine the destination from the conversation.
+            </ParamField>
+            <ParamField body="config.nativeTools.transfer_call.staticDestination" type="string">
+              Destination phone number in E.164 format (e.g., `"+1234567890"`). Required when `mode` is `"static"`.
+            </ParamField>
+            <ParamField body="config.nativeTools.transfer_call.description" type="string">
+              Description of when to use this tool. Required for static mode; used as a fallback description in dynamic mode.
+            </ParamField>
+            <ParamField body="config.nativeTools.transfer_call.dynamicPrompt" type="string">
+              Instructions for dynamic mode, including all possible transfer destinations and the conditions that trigger each. Required when `mode` is `"dynamic"`.
+            </ParamField>
+            <ParamField body="config.nativeTools.transfer_call.callerIdMode" type="string" default="agent">
+              Caller ID shown to the transfer recipient: `"agent"` (the agent's number) or `"user"` (the original caller's number).
+            </ParamField>
+            <ParamField body="config.nativeTools.transfer_call.transferType" type="string" default="cold">
+              `"cold"` disconnects the agent before connecting the recipient. `"warm"` keeps the agent on the line briefly during handoff.
+            </ParamField>
+            <ParamField body="config.nativeTools.transfer_call.sipHeaders" type="object">
+              Optional SIP headers to pass with the transfer as key-value pairs (e.g., `{"X-Custom-Header": "value"}`).
+            </ParamField>
+          </Expandable>
+        </ParamField>
+
+        <ParamField body="config.nativeTools.send_sms" type="object">
+          Controls the agent's ability to send an SMS to the caller.
+
+          <Expandable title="send_sms properties">
+            <ParamField body="config.nativeTools.send_sms.enabled" type="boolean" required>
+              Whether the SMS tool is active.
+            </ParamField>
+            <ParamField body="config.nativeTools.send_sms.description" type="string">
+              Instructions for the agent on when to send an SMS.
+            </ParamField>
+            <ParamField body="config.nativeTools.send_sms.smsContentType" type="string">
+              `"prompt"` — the agent composes the message. `"static"` — a fixed message is always sent.
+            </ParamField>
+            <ParamField body="config.nativeTools.send_sms.smsStaticMessage" type="string">
+              The fixed message to send. Required when `smsContentType` is `"static"`.
+            </ParamField>
+          </Expandable>
+        </ParamField>
+      </Expandable>
+    </ParamField>
+
+    <ParamField body="config.settings" type="object">
+      Runtime behavior settings for calls handled by this agent.
+
+      <Expandable title="settings properties">
+        <ParamField body="config.settings.initialMessage" type="object">
+          <Expandable title="initialMessage properties">
+            <ParamField body="config.settings.initialMessage.enabled" type="boolean" default="true">
+              When `true`, the agent speaks first when the call is answered. When `false`, the agent waits for the caller to speak first.
+            </ParamField>
+          </Expandable>
+        </ParamField>
+
+        <ParamField body="config.settings.maxCallDuration" type="number" default="600">
+          Maximum call duration in seconds. The call is automatically terminated when this limit is reached. Default is 600 seconds (10 minutes).
+        </ParamField>
+
+        <ParamField body="config.settings.endCallOnSilence" type="boolean" default="false">
+          When `true`, the agent hangs up after a period of caller silence.
+        </ParamField>
+
+        <ParamField body="config.settings.silenceTimeoutMinutes" type="number" default="5">
+          Minutes of silence before the call is ended. Only applies when `endCallOnSilence` is `true`.
+        </ParamField>
+
+        <ParamField body="config.settings.voicemailDetection" type="object">
+          <Expandable title="voicemailDetection properties">
+            <ParamField body="config.settings.voicemailDetection.enabled" type="boolean" default="false">
+              Whether to detect voicemail greetings on outbound calls.
+            </ParamField>
+            <ParamField body="config.settings.voicemailDetection.action" type="string" default="hangup">
+              Action to take when voicemail is detected: `"hangup"` ends the call immediately; `"leave_message"` allows the agent to speak a voicemail message.
+            </ParamField>
+          </Expandable>
+        </ParamField>
+
+        <ParamField body="config.settings.postCallAnalysis" type="object">
+          <Expandable title="postCallAnalysis properties">
+            <ParamField body="config.settings.postCallAnalysis.enabled" type="boolean" default="false">
+              Whether to run AI-powered analysis after each call to extract structured data.
+            </ParamField>
+            <ParamField body="config.settings.postCallAnalysis.fields" type="object[]">
+              Array of fields to extract from the call transcript.
+
+              <Expandable title="field properties">
+                <ParamField body="name" type="string" required>
+                  Identifier for the field (e.g., `"customer_satisfaction"`).
+                </ParamField>
+                <ParamField body="description" type="string" required>
+                  Explains what the AI should extract from the transcript for this field.
+                </ParamField>
+                <ParamField body="type" type="string" required>
+                  Data type: `"string"`, `"enum"`, `"number"`, or `"boolean"`.
+                </ParamField>
+                <ParamField body="required" type="boolean">
+                  Whether this field must be populated in the analysis output.
+                </ParamField>
+                <ParamField body="choices" type="string[]">
+                  Valid values when `type` is `"enum"`.
+                </ParamField>
+              </Expandable>
+            </ParamField>
+          </Expandable>
+        </ParamField>
+
+        <ParamField body="config.settings.webhookUrl" type="string">
+          URL that receives `call_started`, `call_ended`, and `call_analyzed` webhook events for calls handled by this agent. See [Webhook events](/api-reference/webhooks/events).
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Response
+
+A successful request returns `201 Created` with the full agent object.
+
+<ResponseField name="id" type="string" required>
+  UUID of the created agent.
+</ResponseField>
+
+<ResponseField name="workspace_id" type="string" required>
+  UUID of the workspace that owns this agent.
+</ResponseField>
+
+<ResponseField name="agent_name" type="string" required>
+  Display name of the agent.
+</ResponseField>
+
+<ResponseField name="created_at" type="string" required>
+  ISO 8601 timestamp of when the agent was created.
+</ResponseField>
+
+<ResponseField name="updated_at" type="string" required>
+  ISO 8601 timestamp of the last update.
+</ResponseField>
+
+<ResponseField name="config" type="object" required>
+  The full configuration object as stored, including all applied defaults.
+</ResponseField>
+
+<ResponseField name="sip_uri" type="string">
+  Full SIP URI for dialing the agent (e.g., `sip:verbeo-ai-5eebc895@...sip.twilio.com`). Only present when `sipUri` was `true` in the request.
+</ResponseField>
+
+<ResponseField name="twilio_sip_username" type="string">
+  SIP username for authentication. Only present when `sipUri` was `true`.
+</ResponseField>
+
+<ResponseField name="twilio_sip_domain" type="string">
+  SIP domain. Use this value (without the `sip:` prefix) when appending dynamic variables as query parameters. Only present when `sipUri` was `true`.
+</ResponseField>
+
+<ResponseField name="twilio_sip_credential_sid" type="string">
+  Twilio credential SID. Only present when `sipUri` was `true`.
+</ResponseField>
+
+<ResponseField name="twilio_sip_credential_list_sid" type="string">
+  Twilio credential list SID. Only present when `sipUri` was `true`.
+</ResponseField>
+
+<ResponseField name="twilio_sip_domain_sid" type="string">
+  Twilio domain SID. Only present when `sipUri` was `true`.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash Minimal
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "Customer Support Agent"
+  }'
+```
+
+```bash Full configuration
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "Customer Support Agent",
+    "sipUri": true,
+    "config": {
+      "systemPrompt": "You are a helpful customer support agent for a tech company. Be friendly, professional, and solution-oriented. Always confirm customer details before making changes.",
+      "voice": {
+        "voiceId": "Zephyr"
+      },
+      "nativeTools": {
+        "end_call": {
+          "enabled": true,
+          "description": "End the call when the conversation naturally concludes or the user says goodbye."
+        },
+        "send_sms": {
+          "enabled": true,
+          "description": "Send a follow-up SMS when the user requests written confirmation.",
+          "smsContentType": "prompt"
+        }
+      },
+      "settings": {
+        "initialMessage": { "enabled": true },
+        "maxCallDuration": 600,
+        "endCallOnSilence": true,
+        "silenceTimeoutMinutes": 5,
+        "voicemailDetection": { "enabled": true, "action": "hangup" },
+        "webhookUrl": "https://your-server.example.com/verbeo-events",
+        "postCallAnalysis": {
+          "enabled": true,
+          "fields": [
+            {
+              "name": "issue_resolved",
+              "description": "Whether the customer issue was fully resolved during the call",
+              "type": "boolean",
+              "required": true
+            },
+            {
+              "name": "follow_up_required",
+              "description": "Whether a follow-up action is needed after the call",
+              "type": "boolean",
+              "required": false
+            }
+          ]
+        }
+      }
+    }
+  }'
+```
+
+```bash Static transfer
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "Support Agent with Transfer",
+    "config": {
+      "systemPrompt": "You are a customer support agent.",
+      "nativeTools": {
+        "end_call": { "enabled": true },
+        "transfer_call": {
+          "enabled": true,
+          "mode": "static",
+          "staticDestination": "+1234567890",
+          "description": "Transfer to a human agent when the caller requests it or when the issue cannot be resolved."
+        }
+      }
+    }
+  }'
+```
+
+```bash Dynamic transfer
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "Multi-Department Agent",
+    "config": {
+      "systemPrompt": "You are a customer service agent.",
+      "nativeTools": {
+        "end_call": { "enabled": true },
+        "transfer_call": {
+          "enabled": true,
+          "mode": "dynamic",
+          "dynamicPrompt": "Transfer to sales (+1987654321) for product inquiries. Transfer to technical support (+1555123456) for technical issues. Transfer to billing (+1444555666) for payment questions. Confirm with the customer before transferring."
+        }
+      }
+    }
+  }'
+```
+
+</CodeGroup>
+
+### Response (with SIP URI)
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
+  "agent_name": "Customer Support Agent",
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z",
+  "config": {
+    "systemPrompt": "You are a helpful customer support agent...",
+    "voice": { "voiceId": "Zephyr" },
+    "toolIds": [],
+    "fileSearchStoreIds": [],
+    "nativeTools": {
+      "end_call": { "enabled": true },
+      "send_sms": { "enabled": true, "smsContentType": "prompt" }
+    },
+    "settings": {
+      "initialMessage": { "enabled": true },
+      "maxCallDuration": 600,
+      "endCallOnSilence": true,
+      "silenceTimeoutMinutes": 5,
+      "voicemailDetection": { "enabled": true, "action": "hangup" },
+      "webhookUrl": "https://your-server.example.com/verbeo-events",
+      "postCallAnalysis": { "enabled": true, "fields": [] }
+    }
+  },
+  "sip_uri": "sip:verbeo-ai-5eebc895@verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com",
+  "twilio_sip_username": "verbeo-ai-5eebc895",
+  "twilio_sip_domain": "verbeo-ai-5eebc895dd904e45b07e5f8c0161448d.sip.twilio.com",
+  "twilio_sip_credential_sid": "CRxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "twilio_sip_credential_list_sid": "CLxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "twilio_sip_domain_sid": "SDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+## Error responses
+
+| Status | Description |
+|--------|-------------|
+| `401` | Invalid or missing API key |
+| `500` | Internal server error — check the `error` field for details |
+
+<Note>
+  Only the Google Gemini real-time model (`gemini-2.5-flash-native-audio-preview-09-2025`) is currently supported. Speed control is not available because the platform uses real-time voice streaming.
+</Note>

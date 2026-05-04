@@ -1,0 +1,228 @@
+---
+title: "Extract insights with post-call analysis"
+description: "Define structured extraction fields so Verbeo automatically pulls named data from every call transcript and delivers it to your webhook."
+---
+
+Post-call analysis turns raw conversations into structured, machine-readable data. You define the fields you want — customer email, issue resolved, sentiment, appointment date — and after every call, Verbeo's AI reads the transcript and extracts the values. The results are delivered to your webhook URL in the `call_analyzed` event, ready to push into your CRM, trigger workflows, or feed a dashboard.
+
+## How it works
+
+Every call goes through three lifecycle stages, each of which fires a webhook event:
+
+```text
+Call answered     → call_started   (immediate)
+Call disconnects  → call_ended     (immediate)
+Analysis finishes → call_analyzed  (20–30 seconds after call_ended)
+```
+
+`call_analyzed` is the event that carries your extracted data. It arrives 20–30 seconds after the call ends — long enough for the AI to transcribe, summarize, and extract all configured fields from the full conversation.
+
+## Configure extraction fields
+
+Open your agent in the dashboard, scroll to **Post-Call Analysis**, and toggle it on. Then click **Add Field** for each piece of data you want extracted.
+
+Each field has five settings:
+
+| Setting | Description |
+|---|---|
+| **Name** | The JSON key in `analysis_data` (snake_case recommended, e.g. `issue_resolved`) |
+| **Description** | Plain-English instructions the AI follows. This is the most important setting — be specific. |
+| **Type** | `string`, `number`, `boolean`, or `enum` |
+| **Required** | Flags the field in your system if the AI returns `null` — does not force the AI to invent a value |
+| **Choices** | For `enum` type — the allowed values (up to 30) |
+
+### Example field configuration
+
+Here is a configuration for a customer support agent that tracks issue resolution and caller sentiment:
+
+```json
+{
+  "postCallAnalysis": {
+    "enabled": true,
+    "fields": [
+      {
+        "name": "issue_resolved",
+        "description": "True if the agent fully resolved the customer's issue during the call. False if the issue was escalated, unresolved, or requires a callback. Null if no specific issue was discussed.",
+        "type": "boolean",
+        "required": true
+      },
+      {
+        "name": "issue_category",
+        "description": "The primary category of the customer's issue. Choose the closest match from the available options.",
+        "type": "enum",
+        "choices": ["billing", "technical", "shipping", "returns", "account", "other"]
+      },
+      {
+        "name": "customer_email",
+        "description": "The email address the customer provided verbally. Normalize to lowercase. Return null if no email was mentioned.",
+        "type": "string"
+      },
+      {
+        "name": "callback_requested",
+        "description": "True if the customer explicitly asked for a callback or follow-up call. False if they did not.",
+        "type": "boolean"
+      },
+      {
+        "name": "sentiment",
+        "description": "The overall emotional tone of the caller across the whole conversation. Choose positive if cooperative and satisfied, neutral if flat or transactional, negative if frustrated or dissatisfied.",
+        "type": "enum",
+        "choices": ["positive", "neutral", "negative"]
+      }
+    ]
+  }
+}
+```
+
+<Tip>
+  Write descriptions the same way you would write instructions for a human analyst reading the transcript. Tell the AI exactly what counts as a value, what to do when the data is ambiguous, and when to return `null`.
+</Tip>
+
+## The `call_analyzed` webhook event
+
+When analysis completes, Verbeo sends a `POST` to your `webhookUrl` with the following shape. The `analysis_data` object contains exactly the fields you configured, keyed by the names you chose.
+
+```json
+{
+  "event": "call_analyzed",
+  "call_id": "00000000-0000-0000-0000-000000000001",
+  "agent_id": "agent_example_0001",
+  "timestamp": "2026-04-17T11:07:05.000Z",
+  "payload": {
+    "status": "analyzed",
+    "data": {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "call_type": "outbound",
+      "from_number": "+15550100001",
+      "to_number": "+15550100002",
+      "status": "completed",
+      "duration": 207,
+      "started_at": "2026-04-17T11:03:15.000Z",
+      "ended_at": "2026-04-17T11:06:42.000Z",
+      "disconnection_reason": "user_hangup",
+      "recording_url": "https://recordings.example.com/call-abc123.wav",
+      "transcript": [
+        { "role": "agent", "content": "Hi, how can I help you today?", "timestamp": "2026-04-17T11:03:18.000Z" },
+        { "role": "user", "content": "I have a billing question.", "timestamp": "2026-04-17T11:03:22.000Z" },
+        { "role": "agent", "content": "Of course — can you share your account email?", "timestamp": "2026-04-17T11:03:25.000Z" },
+        { "role": "user", "content": "Sure, it's sarah@example.com", "timestamp": "2026-04-17T11:03:31.000Z" }
+      ],
+      "summary": "Customer Sarah called about a billing discrepancy on her account. The agent verified her identity, reviewed the charge, and confirmed it was correct. Sarah accepted the explanation and ended the call satisfied.",
+      "analysis_data": {
+        "issue_resolved": true,
+        "issue_category": "billing",
+        "customer_email": "sarah@example.com",
+        "callback_requested": false,
+        "sentiment": "positive"
+      },
+      "dynamic_variables": {
+        "customer_name": "Sarah Chen",
+        "plan": "premium"
+      }
+    }
+  }
+}
+```
+
+### Key fields in `payload.data`
+
+| Field | Description |
+|---|---|
+| `transcript` | Interleaved array of `user`, `agent`, and `tool` turns in chronological order |
+| `summary` | AI-generated 4–8 sentence plain-English summary of the call |
+| `analysis_data` | Your extracted fields — exactly the keys and types you configured |
+| `recording_url` | Signed URL to the call audio. Fetch and store it if you need it long-term |
+| `dynamic_variables` | Variables you passed when initiating the call, echoed back for correlation |
+
+## The three webhook events
+
+You receive three events per call, all delivered to the same `webhookUrl`:
+
+### `call_started`
+
+Fires within seconds of the call being answered. Use it to initialize a live dashboard entry or pre-warm a CRM record.
+
+```json
+{
+  "event": "call_started",
+  "call_id": "...",
+  "agent_id": "...",
+  "timestamp": "2026-04-17T11:03:15.000Z",
+  "payload": {
+    "status": "started",
+    "call_type": "outbound",
+    "from_number": "+15550100001",
+    "to_number": "+15550100002",
+    "dynamic_variables": { "customer_name": "Sarah Chen" }
+  }
+}
+```
+
+### `call_ended`
+
+Fires within seconds of disconnect. Contains duration and disconnection reason but not yet the transcript or extracted data.
+
+```json
+{
+  "event": "call_ended",
+  "call_id": "...",
+  "agent_id": "...",
+  "timestamp": "2026-04-17T11:06:42.000Z",
+  "payload": {
+    "status": "completed",
+    "duration": 207,
+    "disconnection_reason": "user_hangup"
+  }
+}
+```
+
+### `call_analyzed`
+
+Fires 20–30 seconds after `call_ended`. This is the primary event for downstream automation — it contains everything.
+
+Set your `webhookUrl` in the agent's settings. All three events are delivered to the same URL; dispatch in your handler on the `event` field.
+
+## Set the webhook URL via API
+
+```bash
+curl -X PATCH "https://api.verbeo.ai/agents?agentId=YOUR_AGENT_ID" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {
+      "settings": {
+        "webhookUrl": "https://api.yourcompany.com/verbeo-events",
+        "postCallAnalysis": {
+          "enabled": true,
+          "fields": [
+            {
+              "name": "issue_resolved",
+              "description": "True if the agent fully resolved the issue during the call.",
+              "type": "boolean",
+              "required": true
+            },
+            {
+              "name": "sentiment",
+              "description": "Overall caller sentiment: positive, neutral, or negative.",
+              "type": "enum",
+              "choices": ["positive", "neutral", "negative"]
+            }
+          ]
+        }
+      }
+    }
+  }'
+```
+
+## Handling missing values
+
+If the AI cannot find a confident value for a field, it returns `null` — never an empty string, never a fabricated value. A `required` field returning `null` means the data genuinely was not in the transcript.
+
+If you see `null` frequently on a field you expect to be populated, tighten the description. Specify what counts as a value, what format it should be in, and what to return when the caller is vague.
+
+## What to build with `analysis_data`
+
+- **CRM sync** — push extracted fields directly into a contact record after every call.
+- **Follow-up triggers** — if `callback_requested === true`, create a task for a human agent.
+- **Lead scoring** — combine `sentiment`, `issue_resolved`, and custom fields to rank leads automatically.
+- **Compliance archiving** — store the transcript, summary, and recording URL for every call.
+- **Real-time dashboards** — listen to all three events to show live call status and fill in outcomes when analysis arrives.

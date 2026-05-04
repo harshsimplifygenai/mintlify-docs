@@ -1,0 +1,80 @@
+---
+title: "API authentication and keys"
+description: "Learn about Verbeo's two API key types, which endpoints each one can access, how to generate keys from the dashboard, and how to pass them in requests."
+---
+
+Every request to the Verbeo API must include an API key in the `Authorization` header. Verbeo issues two key types with different access levels. Understanding which key to use for each endpoint is essential before making your first request.
+
+## Key types
+
+| Type | Prefix | Access |
+|------|--------|--------|
+| Private key | `vbr_` | Full API access including initiating calls |
+| Public key | `vbr_pub_` | Read-only and agent management endpoints only |
+
+<Warning>
+  Public keys (`vbr_pub_`) cannot be used with the Calls API. Attempting to initiate a call with a public key returns a `401` error. Always use a private key for programmatic call initiation.
+</Warning>
+
+## Generating an API key
+
+<Steps>
+  <Step title="Open your workspace settings">
+    Log in to the Verbeo dashboard and navigate to **Settings → API Keys**.
+  </Step>
+  <Step title="Generate a new key">
+    Click **Generate New Key**. Choose the key type appropriate for your use case.
+  </Step>
+  <Step title="Copy and store the key">
+    The key is shown only once at creation time. Copy it immediately and store it in a secrets manager or environment variable. Verbeo does not display the full key again after you leave this page.
+  </Step>
+</Steps>
+
+<Tip>
+  Rotate keys regularly and use separate keys for different environments (development, staging, production). Restrict keys to the minimum access level your integration needs.
+</Tip>
+
+## Passing the key in requests
+
+Include your API key as a Bearer token in the `Authorization` header of every request:
+
+```bash
+curl -X GET "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json"
+```
+
+Replace `YOUR_API_KEY` with your actual key value — including the `vbr_` or `vbr_pub_` prefix.
+
+## Which key to use
+
+| Endpoint | Private key | Public key |
+|----------|-------------|------------|
+| `POST /agents` — Create agent | Yes | Yes |
+| `GET /agents` — List agents | Yes | Yes |
+| `GET /agents?agentId=` — Get agent | Yes | Yes |
+| `PATCH /agents?agentId=` — Update agent | Yes | Yes |
+| `DELETE /agents?agentId=` — Delete agent | Yes | Yes |
+| `POST /calls` — Initiate call | Yes | No |
+| `GET /calls` — List calls | Yes | Yes |
+| `GET /calls?callId=` — Get call | Yes | Yes |
+| Campaigns API | Yes | Yes |
+
+## Error responses
+
+If your key is missing, invalid, expired, or of the wrong type for the endpoint, the API returns a `401` response:
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+If you receive this error when calling the Calls API, verify that you are using a private key (prefix `vbr_`) and not a public key.
+
+## Security best practices
+
+- Never commit API keys to version control or expose them in client-side code.
+- Store keys in environment variables or a dedicated secrets manager.
+- Revoke compromised keys immediately from **Settings → API Keys** in the dashboard.
+- Use the minimum key privilege required — prefer public keys for read-only integrations.

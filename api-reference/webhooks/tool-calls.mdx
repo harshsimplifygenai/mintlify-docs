@@ -1,0 +1,229 @@
+---
+title: "Tool call webhooks"
+description: "Reference for the tool_invoked webhook. Fired during a live call when the agent invokes a custom tool. Includes payload shapes for POST and GET methods."
+---
+
+When your agent invokes a custom tool during a call, Verbeo sends an HTTP request to the tool's configured `endpoint_url`. This is distinct from the [call lifecycle events](/api-reference/webhooks/events) that go to the agent's `webhookUrl` — tool call requests go directly to the tool's own endpoint, and your server must respond within 10 seconds with a result that is fed back to the agent in real time.
+
+## How tool calls work
+
+During a live conversation, when the agent decides to use a tool, Verbeo:
+
+1. Extracts the tool arguments from the conversation context according to the tool's JSON Schema.
+2. Sends an HTTP request to the tool's `endpoint_url` using the configured HTTP method.
+3. Waits up to **10 seconds** for your server to respond.
+4. Passes your response back to the agent as the tool result, which the agent uses to continue the conversation.
+
+<Warning>
+  Your tool endpoint must respond within **10 seconds**. If it does not, the tool call times out and the agent receives an error result. Design your tool handlers to be fast — fetch only what you need and avoid blocking operations.
+</Warning>
+
+## Request format
+
+The HTTP method is configured per tool. POST, PUT, and PATCH requests receive a JSON body. GET requests receive the arguments as URL query parameters.
+
+### POST body (POST, PUT, PATCH methods)
+
+```json
+{
+  "call": {
+    "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+    "call_type": "outbound",
+    "agent_id": "agent_f3a2b1c4e5d6",
+    "agent_name": "Appointment Booking Bot",
+    "workspace_id": "789e0123-e45b-67c8-d901-234567890123",
+    "from_number": "+14155551234",
+    "to_number": "+34912345678",
+    "customer_number": "+14155551234",
+    "assistant_number": "+34912345678",
+    "dynamic_variables": {
+      "customer_name": "Juan Pérez",
+      "plan": "premium"
+    },
+    "transcript": "[11:03:22] User: I'd like to book an appointment\n[11:03:25] Agent: Of course, for what date?",
+    "transcript_object": [
+      {
+        "role": "user",
+        "content": "I'd like to book an appointment",
+        "timestamp": "2026-04-17T11:03:22.123Z"
+      },
+      {
+        "role": "agent",
+        "content": "Of course, for what date?",
+        "timestamp": "2026-04-17T11:03:25.456Z"
+      }
+    ]
+  },
+  "name": "book_appointment",
+  "args": {
+    "date": "2026-04-18",
+    "time": "11:00",
+    "service_type": "consultation"
+  },
+  "timestamp": "2026-04-17T11:03:45.200Z"
+}
+```
+
+### GET request
+
+For GET tools, arguments are flattened into the query string. No `call` metadata or `args` wrapper is included in the request.
+
+```
+GET /your-tool-endpoint?date=2026-04-18&time=11%3A00&service_type=consultation
+```
+
+Use POST if your tool handler needs access to call metadata such as the caller's number, dynamic variables, or the live transcript.
+
+## Request fields
+
+<ResponseField name="call" type="object" required>
+  Metadata about the active call.
+
+  <Expandable title="call properties">
+    <ResponseField name="call.call_id" type="string" required>
+      Verbeo UUID for this call.
+    </ResponseField>
+    <ResponseField name="call.call_type" type="string" required>
+      `"inbound"`, `"outbound"`, or `"web_call"`.
+    </ResponseField>
+    <ResponseField name="call.agent_id" type="string" required>
+      UUID of the agent invoking the tool.
+    </ResponseField>
+    <ResponseField name="call.agent_name" type="string" required>
+      Display name of the agent.
+    </ResponseField>
+    <ResponseField name="call.workspace_id" type="string" required>
+      UUID of the workspace.
+    </ResponseField>
+    <ResponseField name="call.from_number" type="string">
+      Originating phone number in E.164 format. `null` for web calls.
+    </ResponseField>
+    <ResponseField name="call.to_number" type="string">
+      Destination phone number in E.164 format. `null` for web calls.
+    </ResponseField>
+    <ResponseField name="call.customer_number" type="string">
+      The caller's phone number (same as `from_number` for outbound calls).
+    </ResponseField>
+    <ResponseField name="call.dynamic_variables" type="object">
+      Dynamic variables active on this call. Empty object `{}` if none were set.
+    </ResponseField>
+    <ResponseField name="call.transcript" type="string">
+      Plain-text conversation history up to the point the tool was invoked.
+    </ResponseField>
+    <ResponseField name="call.transcript_object" type="object[]">
+      Structured transcript array up to the point the tool was invoked. Each entry has `role`, `content`, and `timestamp`. Empty array `[]` if the tool fires before any conversation turns.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Name of the tool being invoked, as configured in the tool settings.
+</ResponseField>
+
+<ResponseField name="args" type="object" required>
+  Arguments extracted from the conversation by the agent, keyed according to the tool's JSON Schema. The exact keys depend on how your tool is defined.
+</ResponseField>
+
+<ResponseField name="timestamp" type="string" required>
+  ISO 8601 timestamp of when the tool was invoked.
+</ResponseField>
+
+## Responding to tool calls
+
+Your endpoint must return an HTTP `2xx` status code and a JSON body within 10 seconds. The response body is passed directly back to the agent as the tool result.
+
+You can return a plain string result or any JSON object:
+
+```json
+{"result": "Appointment booked for April 18 at 11:00 AM. Confirmation number: APT-9876."}
+```
+
+```json
+{
+  "booked": true,
+  "confirmation_id": "APT-9876",
+  "date": "2026-04-18",
+  "time": "11:00"
+}
+```
+
+<Tip>
+  The agent reads your response verbatim as the tool result and uses it to construct its next utterance. Prefer natural-language-friendly responses over raw data structures. A message like `"Appointment confirmed for April 18 at 11 AM"` leads to a more natural conversation than a raw JSON blob.
+</Tip>
+
+## Implementation example
+
+```javascript
+// Express.js tool handler
+app.post("/tools/book-appointment", async (req, res) => {
+  const { call, name, args, timestamp } = req.body;
+
+  try {
+    // Use call metadata if needed
+    const customerName = call.dynamic_variables?.customer_name || "the customer";
+
+    // Perform your business logic
+    const booking = await createAppointment({
+      date: args.date,
+      time: args.time,
+      serviceType: args.service_type,
+      customerPhone: call.customer_number,
+    });
+
+    // Return a natural-language-friendly result
+    res.json({
+      result: `Appointment confirmed for ${args.date} at ${args.time}. Confirmation number: ${booking.id}.`,
+    });
+  } catch (error) {
+    // Return a descriptive error the agent can communicate to the caller
+    res.json({
+      result: "I was unable to book the appointment. Please try a different time or date.",
+    });
+  }
+});
+```
+
+```python
+# Flask tool handler
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route("/tools/book-appointment", methods=["POST"])
+def book_appointment():
+    data = request.json
+    call = data["call"]
+    args = data["args"]
+
+    try:
+        booking = create_appointment(
+            date=args["date"],
+            time=args["time"],
+            customer_phone=call["customer_number"],
+        )
+        return jsonify({
+            "result": f"Appointment confirmed for {args['date']} at {args['time']}. Confirmation: {booking['id']}."
+        })
+    except Exception as e:
+        return jsonify({
+            "result": "I was unable to book that appointment. Please try a different time."
+        })
+```
+
+## Accessing dynamic variables
+
+Use `call.dynamic_variables` to access any variables that were set when the call was initiated, giving your tool full context about the caller:
+
+```javascript
+const { customer_name, account_id, plan } = call.dynamic_variables;
+```
+
+## Differences from lifecycle events
+
+| | Tool call webhook | Lifecycle events |
+|--|---|---|
+| Destination | Tool's `endpoint_url` | Agent's `webhookUrl` |
+| When it fires | During the call | At call start, end, and after analysis |
+| Response required | Yes — within 10 seconds | No response body required |
+| HTTP method | Configured per tool (GET/POST/PUT/PATCH) | Always POST |
+| Purpose | Real-time data lookup | Monitoring and post-call processing |

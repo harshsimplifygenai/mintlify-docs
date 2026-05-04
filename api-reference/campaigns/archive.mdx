@@ -1,0 +1,82 @@
+---
+title: "POST /campaign/archive — Cancel a campaign"
+sidebarTitle: "Archive (cancel)"
+description: "Permanently cancel a campaign. All pending and retry-scheduled contacts are marked cancelled. This action cannot be undone."
+---
+
+Cancels a campaign permanently. Pending and retry-scheduled contacts are marked `cancelled`. Calls already in flight finish on their own.
+
+The endpoint is named `archive` for historical reasons; the action sent to the orchestrator is `cancel`.
+
+<Warning>
+  Archived campaigns cannot be restarted. Create a new campaign if you need to dial the same list again. To stop calls temporarily, use [`/campaign/pause`](/api-reference/campaigns/pause) instead.
+</Warning>
+
+## Endpoint
+
+```
+POST https://api.verbeo.ai/v1/campaign/archive
+```
+
+## Request body
+
+<ParamField body="campaign_id" type="string" required>
+  UUID of the campaign to cancel.
+</ParamField>
+
+## Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://api.verbeo.ai/v1/campaign/archive" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" }'
+```
+
+```javascript Node.js
+await fetch("https://api.verbeo.ai/v1/campaign/archive", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.VERBEO_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ campaign_id: "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" }),
+});
+```
+
+```python Python
+import os, requests
+
+requests.post(
+    "https://api.verbeo.ai/v1/campaign/archive",
+    headers={"Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}"},
+    json={"campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff"},
+)
+```
+
+</CodeGroup>
+
+## Response
+
+A `200 OK` with the orchestrator's confirmation.
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+    "status": "cancelled"
+  }
+}
+```
+
+## Error responses
+
+| Code | Status | Cause |
+|---|---|---|
+| `MISSING_FIELD` | 400 | `campaign_id` not provided. |
+| `UNAUTHORIZED` | 401 | Missing/invalid API key. |
+| `CAMPAIGN_NOT_FOUND` | 404 | Campaign UUID isn't in your workspace. |
+| `ORCHESTRATOR_ERROR` | 500 | Internal coordinator error. Safe to retry. |

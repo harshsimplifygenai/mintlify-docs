@@ -1,0 +1,168 @@
+---
+title: "Build your first AI voice agent"
+description: "Create a fully configured AI voice agent in the Verbeo dashboard or via the API — including system prompt, voice, and native tools."
+---
+
+Creating your first agent takes only a few minutes. You give the agent a name, write a system prompt that defines its role and behavior, pick a voice, and enable the tools it needs to handle calls gracefully. This guide walks you through the dashboard step by step, then shows you the equivalent API call so you can automate agent creation later.
+
+<Steps>
+  <Step title="Navigate to Agents and click Create">
+    In the Verbeo dashboard, click **Agents** in the left sidebar, then click **Create Agent** in the top-right corner. A new agent form opens.
+  </Step>
+
+  <Step title="Set the agent name">
+    Give your agent a clear, descriptive name such as `Customer Support Agent` or `Appointment Booking Bot`. The name appears in your dashboard, call logs, and webhook payloads — it does not affect how the agent behaves on calls.
+  </Step>
+
+  <Step title="Write your system prompt">
+    The system prompt is the most important configuration field. It defines who the agent is, what it can do, and how it should behave. Be specific: vague prompts produce vague agents.
+
+    Here is a strong example for a customer support agent:
+
+    ```text
+    You are a customer support agent for Acme Co. Your role is to:
+    - Help customers track orders and resolve delivery issues
+    - Answer product questions clearly and accurately
+    - Process return requests by collecting the order number and reason
+    - Escalate billing disputes to a human agent
+
+    Always:
+    - Greet the customer by name if you know it
+    - Confirm order details before making any changes
+    - Summarize what you did before ending the call
+    - Ask "Is there anything else I can help you with?" before closing
+
+    Never:
+    - Share internal pricing or margin information
+    - Promise refunds without confirming eligibility
+    - Keep the customer waiting without explaining what you are doing
+    ```
+
+    **Using dynamic variables in your prompt**
+
+    You can personalize the prompt at call time using the `{{variable_name}}` syntax. For example:
+
+    ```text
+    You are calling {{customer_name}} about order {{order_id}}.
+    Begin by confirming their identity before discussing the order.
+    ```
+
+    When you initiate the call, pass the values in the `dynamicVariables` object and Verbeo substitutes them in automatically. Variable names are case-sensitive and must match exactly.
+  </Step>
+
+  <Step title="Select a voice">
+    Under the **Voice** section, choose from the available voices. Each voice has a distinct tone and cadence — preview a few to find the right fit for your use case.
+
+    Popular choices:
+    - **Zephyr (Nour)** — the default; warm and clear
+    - **Aoede (Paige)** — friendly and approachable
+    - **Charon (John)** — professional and measured
+    - **Enceladus (Mark)** — authoritative and calm
+
+    <Tip>
+      Test two or three voices with a short scripted call before committing. The right voice depends on your brand and your callers' expectations.
+    </Tip>
+  </Step>
+
+  <Step title="Enable native tools">
+    Native tools are built-in capabilities the agent can use during a call. Open the **Native Tools** section and toggle on the tools your agent needs.
+
+    **end_call** (recommended for all agents)
+
+    This tool lets the agent hang up cleanly when the conversation is over. Without it, the call may linger awkwardly after the agent says goodbye.
+
+    **transfer_call**
+
+    Transfers the caller to a human agent or another phone number. Choose between **static** (always transfers to the same number) and **dynamic** (the agent decides where to transfer based on the conversation).
+
+    **send_sms**
+
+    Sends an SMS to the caller during or after the call — useful for confirmation codes, booking references, or follow-up links.
+
+    <Note>
+      Always enable `end_call`. It is the single most impactful setting for call quality — callers should never be left in silence.
+    </Note>
+  </Step>
+
+  <Step title="Save the agent">
+    Click **Save Agent**. Your agent is now live and ready to handle calls. Copy the **Agent ID** from the agent detail page — you will need it when initiating calls via the API.
+  </Step>
+</Steps>
+
+## Create an agent via the API
+
+You can create and configure agents programmatically using the Agents API. This is useful for automated provisioning, multi-tenant setups, or seeding agents from a configuration file.
+
+<CodeGroup>
+
+```bash Minimal request
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "Customer Support Agent"
+  }'
+```
+
+```bash Full configuration
+curl -X POST "https://api.verbeo.ai/agents" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "Customer Support Agent",
+    "config": {
+      "systemPrompt": "You are a customer support agent for Acme Co. Your role is to help customers track orders, answer product questions, and process returns. Always greet the customer by name if you know it. Reference their order as {{order_id}} when applicable. Confirm order details before making changes, summarize what you did before ending the call, and ask if there is anything else you can help with before closing.",
+      "voice": {
+        "voiceId": "Aoede"
+      },
+      "nativeTools": {
+        "end_call": {
+          "enabled": true
+        },
+        "transfer_call": {
+          "enabled": true,
+          "mode": "static",
+          "staticDestination": "+15550001234",
+          "description": "Transfer to a human agent when the customer requests it or when the issue cannot be resolved by the AI."
+        }
+      },
+      "settings": {
+        "initialMessage": {
+          "enabled": true
+        },
+        "maxCallDuration": 600,
+        "webhookUrl": "https://api.yourcompany.com/verbeo-events"
+      }
+    }
+  }'
+```
+
+</CodeGroup>
+
+A successful `201 Created` response returns the agent object including its `id`, which you use as `agentId` in the Calls API.
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "agent_name": "Customer Support Agent",
+  "created_at": "2026-04-17T10:30:00Z",
+  "config": { "..." }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Make outbound calls" icon="phone-outgoing" href="/guides/outbound-calls">
+    Use your new agent ID to place calls via the API.
+  </Card>
+  <Card title="Connect custom tools" icon="wrench" href="/guides/custom-tools">
+    Wire up your backend so the agent can look up data mid-call.
+  </Card>
+  <Card title="Run batch campaigns" icon="list" href="/guides/batch-campaigns">
+    Call hundreds of contacts at once with retry logic.
+  </Card>
+  <Card title="Extract post-call insights" icon="chart-bar" href="/guides/post-call-analysis">
+    Define fields to extract structured data from every call transcript.
+  </Card>
+</CardGroup>

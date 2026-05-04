@@ -1,0 +1,293 @@
+---
+title: "Receive real-time call events with webhooks"
+description: "Configure a webhook URL on your agent to receive call_started, call_ended, call_analyzed, and tool_invoked events in real time."
+---
+
+Verbeo sends webhook events to your HTTPS endpoint as calls progress. You configure one URL per agent and Verbeo delivers all lifecycle events there automatically. This lets your systems react in real time — open a CRM record when a call starts, log duration when it ends, and push extracted insights to your database when analysis completes.
+
+## Event types
+
+| Event | Fires | Delivered to |
+|---|---|---|
+| `call_started` | Immediately when the call is answered | Agent `webhookUrl` |
+| `call_ended` | Immediately when either party disconnects | Agent `webhookUrl` |
+| `call_analyzed` | 20–30 seconds after `call_ended` | Agent `webhookUrl` |
+| `tool_invoked` | During the call, when the agent invokes a custom tool | The tool's own endpoint URL |
+
+All four events carry the same `call_id` for a given call. Use it as your primary key to correlate events across your systems.
+
+## Set your webhook URL
+
+In the Agent Editor, open **Settings** and fill in the **Webhook URL** field with your HTTPS endpoint. You can also set it via the API:
+
+```bash
+curl -X PATCH "https://api.verbeo.ai/agents?agentId=YOUR_AGENT_ID" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config": {
+      "settings": {
+        "webhookUrl": "https://api.yourcompany.com/verbeo-events"
+      }
+    }
+  }'
+```
+
+<Warning>
+  Verbeo only delivers to HTTPS endpoints. Plain HTTP URLs are rejected. Your endpoint must present a valid TLS certificate and respond with a `2xx` status within 10 seconds, or the event is retried.
+</Warning>
+
+## Event payloads
+
+All lifecycle events (`call_started`, `call_ended`, `call_analyzed`) share the same top-level envelope:
+
+```json
+{
+  "event": "call_started | call_ended | call_analyzed",
+  "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+  "agent_id": "agent_f3a2b1c4e5d6",
+  "timestamp": "2026-04-17T11:03:15.000Z",
+  "payload": { }
+}
+```
+
+Dispatch in your handler using the top-level `event` field.
+
+### `call_started`
+
+Fires within 1–2 seconds of the call being answered. Contains caller/callee numbers, call type, and any dynamic variables you passed when initiating the call.
+
+```json
+{
+  "event": "call_started",
+  "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+  "agent_id": "agent_f3a2b1c4e5d6",
+  "timestamp": "2026-04-17T11:03:15.000Z",
+  "payload": {
+    "status": "started",
+    "start_time": "2026-04-17T11:03:15.000Z",
+    "call_type": "outbound",
+    "from_number": "+15550100001",
+    "to_number": "+15550100002",
+    "dynamic_variables": {
+      "customer_name": "Sarah Chen",
+      "plan": "premium"
+    }
+  }
+}
+```
+
+### `call_ended`
+
+Fires within 1–2 seconds of disconnect. Includes duration in seconds, cost in cents, and the disconnection reason. The transcript and extracted data are not yet available at this point.
+
+```json
+{
+  "event": "call_ended",
+  "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+  "agent_id": "agent_f3a2b1c4e5d6",
+  "timestamp": "2026-04-17T11:06:42.000Z",
+  "payload": {
+    "status": "completed",
+    "call_type": "outbound",
+    "from_number": "+15550100001",
+    "to_number": "+15550100002",
+    "start_time": "2026-04-17T11:03:15.000Z",
+    "end_time": "2026-04-17T11:06:42.000Z",
+    "duration": 207,
+    "cost": 12,
+    "disconnection_reason": "user_hangup",
+    "dynamic_variables": {
+      "customer_name": "Sarah Chen",
+      "plan": "premium"
+    }
+  }
+}
+```
+
+**Disconnection reasons:**
+
+| Value | Meaning |
+|---|---|
+| `user_hangup` | The human caller hung up |
+| `agent_hangup` | The AI agent ended the call |
+| `timeout` | Call exceeded the maximum duration |
+| `voicemail` | Agent detected voicemail |
+| `no_answer` | The called party did not pick up |
+| `error` | A platform error ended the call |
+
+### `call_analyzed`
+
+Fires 20–30 seconds after `call_ended`. This is the primary event for downstream integrations. It carries the full transcript, AI-generated summary, your extracted `analysis_data` fields, a log of every tool executed, and a recording URL.
+
+```json
+{
+  "event": "call_analyzed",
+  "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+  "agent_id": "agent_f3a2b1c4e5d6",
+  "timestamp": "2026-04-17T11:07:05.000Z",
+  "payload": {
+    "status": "analyzed",
+    "data": {
+      "id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+      "call_type": "outbound",
+      "from_number": "+15550100001",
+      "to_number": "+15550100002",
+      "status": "completed",
+      "duration": 207,
+      "started_at": "2026-04-17T11:03:15.000Z",
+      "ended_at": "2026-04-17T11:06:42.000Z",
+      "disconnection_reason": "user_hangup",
+      "recording_url": "https://recordings.example.com/call-b7a3c1e4.wav",
+      "cost": 12,
+      "transcript": [
+        { "role": "agent", "content": "Hi, how can I help you today?", "timestamp": "2026-04-17T11:03:18.000Z" },
+        { "role": "user", "content": "I have a question about my bill.", "timestamp": "2026-04-17T11:03:22.000Z" }
+      ],
+      "summary": "Customer Sarah Chen called about a billing question. The agent reviewed the account and clarified the charge. The call ended with the issue resolved.",
+      "analysis_data": {
+        "issue_resolved": true,
+        "sentiment": "positive"
+      },
+      "dynamic_variables": {
+        "customer_name": "Sarah Chen",
+        "plan": "premium"
+      },
+      "tools": []
+    }
+  }
+}
+```
+
+<Note>
+  The `recording_url` is a pre-signed, time-limited link. Download and store the audio in your own system if you need it beyond the signature window.
+</Note>
+
+### `tool_invoked`
+
+Fires during the call, every time the agent invokes one of your custom tools. This event is sent directly to the tool's configured endpoint URL — not to the agent's `webhookUrl`.
+
+```json
+{
+  "event": "tool_invoked",
+  "call_id": "8eb0e5f2-e8b5-44cb-beba-9b802f39c340",
+  "agent_id": "a2e0146d-6b37-4b09-b33b-f2c72f22684d",
+  "timestamp": "2026-04-18T12:19:20.789Z",
+  "payload": {
+    "tool_name": "lookup_order",
+    "args": {
+      "order_id": "ORD-98432"
+    },
+    "call": {
+      "call_type": "outbound",
+      "customer_number": "+12125550001",
+      "dynamic_variables": { "customer_name": "Sarah Chen" },
+      "transcript": "[12:19:08] User: Can you check order ORD-98432?",
+      "transcript_object": [
+        { "role": "user", "content": "Can you check order ORD-98432?", "timestamp": "2026-04-18T12:19:08.000Z" }
+      ]
+    }
+  }
+}
+```
+
+Your handler must respond within 10 seconds with JSON. See the [Custom tools guide](/guides/custom-tools) for the full response format.
+
+## Handle webhooks reliably
+
+### Respond with 2xx immediately
+
+Return a `200 OK` as fast as possible — within 10 seconds at the latest. If your processing takes longer, queue the payload and acknowledge immediately:
+
+```javascript
+app.post('/verbeo-events', (req, res) => {
+  res.sendStatus(200); // Acknowledge immediately
+  processEventAsync(req.body); // Queue for background processing
+});
+```
+
+### Make your handler idempotent
+
+Verbeo retries events if your endpoint returns a non-2xx response or times out. The same event can arrive more than once. Deduplicate on `(call_id, event)`:
+
+```javascript
+const processed = new Set();
+
+async function handleEvent(body) {
+  const key = `${body.call_id}:${body.event}`;
+  if (processed.has(key)) return; // Already handled
+  processed.add(key);
+
+  switch (body.event) {
+    case 'call_started':
+      await createCallRecord(body);
+      break;
+    case 'call_ended':
+      await updateCallDuration(body);
+      break;
+    case 'call_analyzed':
+      await pushToCRM(body);
+      break;
+  }
+}
+```
+
+In production, use a persistent store (Redis, database) rather than an in-memory set.
+
+### Events may arrive out of order
+
+Retries can cause `call_analyzed` to arrive before `call_ended` in rare cases. Each event is self-contained — process them independently rather than relying on order.
+
+## Example Express.js webhook handler
+
+```javascript
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+app.post('/verbeo-events', async (req, res) => {
+  // Acknowledge immediately
+  res.sendStatus(200);
+
+  const { event, call_id, payload } = req.body;
+
+  switch (event) {
+    case 'call_started':
+      console.log(`Call ${call_id} started — caller: ${payload.from_number}`);
+      await db.calls.create({ call_id, status: 'in-progress', ...payload });
+      break;
+
+    case 'call_ended':
+      console.log(`Call ${call_id} ended — duration: ${payload.duration}s`);
+      await db.calls.update(call_id, {
+        status: 'ended',
+        duration: payload.duration,
+        disconnection_reason: payload.disconnection_reason,
+      });
+      break;
+
+    case 'call_analyzed':
+      const { data } = payload;
+      console.log(`Call ${call_id} analyzed — summary: ${data.summary}`);
+      await crm.updateContact({
+        phone: data.to_number,
+        call_summary: data.summary,
+        ...data.analysis_data,
+      });
+      break;
+
+    default:
+      console.warn(`Unknown event type: ${event}`);
+  }
+});
+
+app.listen(3000);
+```
+
+## Security recommendations
+
+- **Verify the `event` field** before processing. Unknown events should be ignored, not errored.
+- **Use HTTPS with a valid certificate.** Plain HTTP endpoints are rejected before any events are sent.
+- **Authenticate inbound requests** by adding a shared secret to the agent's webhook URL as a query parameter (e.g. `https://api.yourcompany.com/webhooks?secret=abc123`) and validating it in your handler.
+- **Do not log full transcripts** to services that cannot handle PII. Transcripts may contain names, phone numbers, emails, and other personal data.
+- **Store `recording_url` contents promptly.** The pre-signed URLs expire — download recordings to your own storage if you need them for compliance or QA.
