@@ -20,15 +20,6 @@
             ]
           },
           {
-            "group": "Core Concepts",
-            "pages": [
-              "concepts/agents",
-              "concepts/phone-numbers",
-              "concepts/calls",
-              "concepts/knowledge-base"
-            ]
-          },
-          {
             "group": "Guides",
             "pages": [
               "guides/build-your-first-agent",
@@ -37,14 +28,6 @@
               "guides/custom-tools",
               "guides/post-call-analysis",
               "guides/webhooks"
-            ]
-          },
-          {
-            "group": "Features",
-            "pages": [
-              "features/voice-selection",
-              "features/sip-uri",
-              "features/analytics"
             ]
           }
         ]
@@ -90,24 +73,12 @@
     "Analytics dashboard for call metrics and costs"
   ],
   "publicApiSurface": [
-    "POST https://api.verbeo.ai/agents",
-    "GET https://api.verbeo.ai/agents",
-    "GET https://api.verbeo.ai/agents?agentId={id}",
-    "PATCH https://api.verbeo.ai/agents?agentId={id}",
-    "DELETE https://api.verbeo.ai/agents?agentId={id}",
-    "POST https://api.verbeo.ai/calls",
-    "GET https://api.verbeo.ai/calls",
-    "GET https://api.verbeo.ai/calls?callId={id}",
     "POST https://api.verbeo.ai/v1/campaign/create",
     "POST https://api.verbeo.ai/v1/campaign/status",
     "POST https://api.verbeo.ai/v1/campaign/stats",
     "POST https://api.verbeo.ai/v1/campaign/update",
     "POST https://api.verbeo.ai/v1/campaign/pause",
     "POST https://api.verbeo.ai/v1/campaign/resume",
-    "POST https://api.verbeo.ai/v1/campaign/archive",
-    "Webhook event: call_started",
-    "Webhook event: call_ended",
-    "Webhook event: call_analyzed",
-    "Webhook event: tool_invoked (custom tool calls)"
+    "POST https://api.verbeo.ai/v1/campaign/archive"
   ]
 }
