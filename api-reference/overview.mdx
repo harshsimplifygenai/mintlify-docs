@@ -1,19 +1,13 @@
 ---
 title: "Verbeo REST API overview"
-description: "A complete reference for the Verbeo REST API. Learn the base URL, request and response formats, versioning policy, rate limits, and how to get support."
+description: "A complete reference for the Verbeo Campaigns REST API. Learn the base URL, request and response formats, versioning policy, rate limits, and how to get support."
 ---
 
-The Verbeo REST API gives you programmatic control over every part of the platform — create and manage agents, place and track calls, run batch campaigns, and receive real-time webhook events. All resources are accessible over HTTPS and exchange data as JSON.
+The Verbeo REST API gives you programmatic control over batch campaigns. All resources are accessible over HTTPS and exchange data as JSON.
 
 ## Base URL
 
 Every API request is sent to the following base URL:
-
-```
-https://api.verbeo.ai
-```
-
-The Campaigns API uses a separate base URL:
 
 ```
 https://api.verbeo.ai/campaigns
@@ -24,10 +18,10 @@ https://api.verbeo.ai/campaigns
 Send all request bodies as JSON. Include the `Content-Type: application/json` header on every request that has a body.
 
 ```bash
-curl -X POST "https://api.verbeo.ai/agents" \
+curl -X POST "https://api.verbeo.ai/campaigns" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"agentName": "Support Agent"}'
+  -d '{"campaignName": "Spring Outreach"}'
 ```
 
 ## Response format
@@ -37,8 +31,8 @@ Every response body is JSON. Successful responses return the resource object or 
 ```json
 {
   "success": false,
-  "error": "Agent not found",
-  "code": "AGENT_NOT_FOUND"
+  "error": "Campaign not found",
+  "code": "CAMPAIGN_NOT_FOUND"
 }
 ```
 
