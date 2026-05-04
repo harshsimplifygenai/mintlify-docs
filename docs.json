@@ -20,7 +20,7 @@
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://app.verbeo.ai"
+      "href": "https://dashboard.verbeo.ai"
     }
   },
   "navigation": {
