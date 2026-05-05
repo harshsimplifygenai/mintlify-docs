@@ -10,50 +10,30 @@ The Verbeo REST API gives you programmatic control over batch campaigns. All res
 Every API request is sent to the following base URL:
 
 ```
-https://api.verbeo.ai/campaigns
+https://api.verbeo.ai/v1
 ```
 
 ## Request format
 
-Send all request bodies as JSON. Include the `Content-Type: application/json` header on every request that has a body.
+The API follows REST conventions. Resources are addressed by URL, and the HTTP method describes the operation: `GET` to read, `POST` to create or trigger an action, `PATCH` to update, `DELETE` to remove. Send request bodies as JSON with the `Content-Type: application/json` header.
 
 ```bash
-curl -X POST "https://api.verbeo.ai/campaigns" \
+curl -X POST "https://api.verbeo.ai/v1/campaigns" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"campaignName": "Spring Outreach"}'
+  -d '{"campaign_name": "Spring Outreach", "agent_id": "...", "phone_number": "+15551234567", "contacts": [...]}'
 ```
 
-## Response format
+## Conventions
 
-Every response body is JSON. Successful responses return the resource object or a wrapper with `success: true`. Error responses return a structured error object with an `error` field and, where available, an error `code`.
+Every Verbeo response uses one of two envelopes:
 
-```json
-{
-  "success": false,
-  "error": "Campaign not found",
-  "code": "CAMPAIGN_NOT_FOUND"
-}
-```
-
-HTTP status codes follow standard conventions:
-
-| Status | Meaning |
-|--------|---------|
-| `200` | Request succeeded |
-| `201` | Resource created |
-| `400` | Bad request — missing or invalid parameters |
-| `401` | Unauthorized — invalid or missing API key |
-| `402` | Payment required — insufficient balance |
-| `403` | Forbidden — account paused |
-| `404` | Not found — resource does not exist |
-| `429` | Too many requests — concurrency limit reached |
-| `500` | Internal server error |
-| `502` | Bad gateway — upstream provider error |
+- **Success** — `{ "success": true, "data": ... }`. List endpoints add `pagination`. See [Responses](/api-reference/responses).
+- **Error** — `{ "success": false, "error": { "code": "...", "message": "...", "details": [...] } }`. Branch on `error.code`, never on the human-readable message. See [Errors](/api-reference/errors) for the full code reference.
 
 ## Authentication
 
-All requests require a Bearer token in the `Authorization` header. See [API authentication and keys](/api-reference/authentication) for full details on key types and which endpoints each key type can access.
+All requests require a Bearer token in the `Authorization` header. See [API authentication and keys](/api-reference/authentication) for full details.
 
 ## Versioning
 

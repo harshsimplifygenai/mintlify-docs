@@ -1,26 +1,19 @@
 ---
-title: "POST /campaign/resume — Resume or start a campaign"
-sidebarTitle: "Resume"
-description: "Single endpoint that starts a draft/scheduled campaign or unpauses a paused one. Verbeo picks the right action based on current status."
+title: "Resume / start campaign"
+sidebarTitle: "Resume campaign"
+description: "Start a draft or scheduled campaign, or resume a paused one. The server picks the right action based on the campaign's current status."
+api: "POST /campaigns/{id}/resume"
 ---
 
-This single endpoint covers both **starting** a fresh campaign and **resuming** a paused one — same mapping the dashboard's "Resume" button uses:
+This is the same single button the dashboard uses. The server looks at the campaign's current status and:
 
-| Current status | Action sent to orchestrator |
-|---|---|
-| `draft`, `scheduled` | `start` |
-| `paused` | `resume` |
+- `draft` or `scheduled` → starts the campaign.
+- `paused` → resumes the campaign from where it left off.
 
-## Endpoint
+## Path parameters
 
-```
-POST https://api.verbeo.ai/v1/campaign/resume
-```
-
-## Request body
-
-<ParamField body="campaign_id" type="string" required>
-  UUID of the campaign to resume or start.
+<ParamField path="id" type="string" required>
+  UUID of the campaign.
 </ParamField>
 
 ## Request
@@ -28,30 +21,21 @@ POST https://api.verbeo.ai/v1/campaign/resume
 <CodeGroup>
 
 ```bash cURL
-curl -X POST "https://api.verbeo.ai/v1/campaign/resume" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{ "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" }'
+curl -X POST "https://api.verbeo.ai/v1/campaigns/0175091d-2c3b-4aef-8c45-dbbe24f7b3ff/resume" \
+  -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ```javascript Node.js
-await fetch("https://api.verbeo.ai/v1/campaign/resume", {
+await fetch(`https://api.verbeo.ai/v1/campaigns/${campaignId}/resume`, {
   method: "POST",
-  headers: {
-    Authorization: `Bearer ${process.env.VERBEO_API_KEY}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({ campaign_id: "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" }),
+  headers: { Authorization: `Bearer ${process.env.VERBEO_API_KEY}` },
 });
 ```
 
 ```python Python
-import os, requests
-
 requests.post(
-    "https://api.verbeo.ai/v1/campaign/resume",
+    f"https://api.verbeo.ai/v1/campaigns/{campaign_id}/resume",
     headers={"Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}"},
-    json={"campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff"},
 )
 ```
 
@@ -59,27 +43,18 @@ requests.post(
 
 ## Response
 
-A `200 OK` with the orchestrator's transition payload.
+`200 OK`.
 
 ```json
 {
   "success": true,
   "data": {
     "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
-    "status": "warmup"
+    "status": "running"
   }
 }
 ```
 
-<Note>
-  After resume, a campaign typically passes through `warmup` (call pool is being prepared) before reaching `in-progress`. If `business_hours` is set and the current time is outside an allowed window, the campaign goes straight to `dormant` and waits for the next window automatically.
-</Note>
+## Errors
 
-## Error responses
-
-| Code | Status | Cause |
-|---|---|---|
-| `MISSING_FIELD` | 400 | `campaign_id` not provided. |
-| `UNAUTHORIZED` | 401 | Missing/invalid API key. |
-| `CAMPAIGN_NOT_FOUND` | 404 | Campaign UUID isn't in your workspace. |
-| `ORCHESTRATOR_ERROR` | 500 | Internal coordinator error. Safe to retry. |
+`CAMPAIGN_NOT_FOUND` (404), `ORCHESTRATOR_ERROR` (502). The orchestrator may also return `INVALID_STATUS` (409) if the campaign is already terminal (`completed`, `cancelled`). See [Campaigns overview](/api-reference/campaigns/overview#error-codes) and [Errors](/api-reference/errors).

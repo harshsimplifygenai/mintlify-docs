@@ -1,0 +1,57 @@
+---
+title: "Cancel campaign"
+sidebarTitle: "Cancel campaign"
+description: "Cancel a campaign. Stops dialing and marks it cancelled. This is the REST equivalent of the dashboard's archive action."
+api: "DELETE /campaigns/{id}"
+---
+
+Cancellation is a terminal state. In-flight calls finish; no further calls are placed. Cancelled campaigns remain visible in [list](/api-reference/campaigns/list) and [get](/api-reference/campaigns/get) for record-keeping.
+
+## Path parameters
+
+<ParamField path="id" type="string" required>
+  UUID of the campaign.
+</ParamField>
+
+## Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X DELETE "https://api.verbeo.ai/v1/campaigns/0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript Node.js
+await fetch(`https://api.verbeo.ai/v1/campaigns/${campaignId}`, {
+  method: "DELETE",
+  headers: { Authorization: `Bearer ${process.env.VERBEO_API_KEY}` },
+});
+```
+
+```python Python
+requests.delete(
+    f"https://api.verbeo.ai/v1/campaigns/{campaign_id}",
+    headers={"Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}"},
+)
+```
+
+</CodeGroup>
+
+## Response
+
+`200 OK`. Returns the orchestrator's acknowledgement payload.
+
+```json
+{
+  "success": true,
+  "data": {
+    "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+    "status": "cancelled"
+  }
+}
+```
+
+## Errors
+
+`CAMPAIGN_NOT_FOUND` (404), `ORCHESTRATOR_ERROR` (502). See [Campaigns overview](/api-reference/campaigns/overview#error-codes) and [Errors](/api-reference/errors).

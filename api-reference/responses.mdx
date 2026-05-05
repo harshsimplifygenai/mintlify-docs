@@ -1,0 +1,79 @@
+---
+title: "Responses"
+description: "Standard success-response envelope, pagination format, and common conventions for every Verbeo API endpoint."
+---
+
+Every successful Verbeo response follows the same envelope. This page is the canonical reference — individual endpoint pages document the resource-specific `data` payload but link here for the wrapper format.
+
+## Success envelope
+
+```json
+{
+  "success": true,
+  "data": { /* resource-specific payload */ }
+}
+```
+
+<ResponseField name="success" type="boolean" required>
+  Always `true` on success. See [Errors](/api-reference/errors) for the failure shape.
+</ResponseField>
+
+<ResponseField name="data" type="object | array" required>
+  The resource the endpoint returns. Object for single-resource reads/writes (e.g. `GET /campaigns/{id}`), array for list endpoints (e.g. `GET /campaigns`).
+</ResponseField>
+
+## Status codes
+
+| Status | When                                                       |
+|--------|------------------------------------------------------------|
+| `200`  | Read or update succeeded                                   |
+| `201`  | Resource created (`POST` to a collection)                  |
+| `204`  | Resource deleted, no body returned                         |
+
+## List responses & pagination
+
+List endpoints (e.g. `GET /campaigns`) return their items in `data` plus a `pagination` object describing the slice you received.
+
+```json
+{
+  "success": true,
+  "data": [
+    { "id": "…", "campaign_name": "Q2 Outreach", "status": "running", "…": "…" }
+  ],
+  "pagination": {
+    "total": 42,
+    "count": 1,
+    "next_cursor": "20"
+  }
+}
+```
+
+<ResponseField name="pagination.total" type="number">
+  Total number of resources matching the query, across all pages.
+</ResponseField>
+<ResponseField name="pagination.count" type="number" required>
+  Number of items in the current response.
+</ResponseField>
+<ResponseField name="pagination.next_cursor" type="string | null" required>
+  Cursor to fetch the next page. `null` when there is no further page.
+</ResponseField>
+
+Pass the cursor back as the `offset` query parameter to fetch the next page:
+
+```bash
+curl "https://api.verbeo.ai/v1/campaigns?limit=20&offset=20" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+## Conventions
+
+- **Identifiers** are UUID v4 strings unless stated otherwise.
+- **Timestamps** are ISO 8601 in UTC, e.g. `"2026-05-04T15:00:00.000Z"`.
+- **Phone numbers** are E.164 strings, e.g. `"+12125550001"`.
+- **Money values** are decimal strings to avoid float rounding. (Reserved — no current endpoint returns money.)
+
+## Backwards-compatibility policy
+
+The API follows an additive compatibility policy: new fields may appear in `data` payloads without notice. Existing fields will not be removed or renamed without an advance deprecation announcement.
+
+Branch on `error.code` for error handling, not on `error.message` — see [Errors](/api-reference/errors).

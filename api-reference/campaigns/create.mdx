@@ -1,16 +1,11 @@
 ---
-title: "POST /campaign/create — Create campaign"
+title: "Create campaign"
 sidebarTitle: "Create campaign"
 description: "Create an outbound batch campaign with a contact list, retry logic, optional scheduling, and optional business-hours gating. Campaigns start in draft status until you resume them."
+api: "POST /campaigns"
 ---
 
-A campaign places outbound AI voice calls to a list of contacts. You upload the contacts, point them at one of your agents and one of your phone numbers, and Verbeo handles dialing, retries, and finalization. Campaigns are created in `draft` status and do not start dialing until you call [`/campaign/resume`](/api-reference/campaigns/resume) — unless you set `scheduled_at`, in which case they start automatically at that time.
-
-## Endpoint
-
-```
-POST https://api.verbeo.ai/v1/campaign/create
-```
+A campaign places outbound AI voice calls to a list of contacts. Campaigns are created in `draft` status and do not start dialing until you call [Resume](/api-reference/campaigns/resume), unless you set `scheduled_at`, in which case they auto-start at that time.
 
 ## Request body
 
@@ -47,7 +42,7 @@ POST https://api.verbeo.ai/v1/campaign/create
 </ParamField>
 
 <ParamField body="max_retries" type="number" default="0">
-  Number of additional attempts per contact after the initial call. A value of `2` means up to 3 total attempts. Retries fire on no-answer, voicemail, busy, or transient dial failure. A connected call that hangs up is considered successful.
+  Additional attempts per contact after the initial call. `2` means up to 3 total attempts. Retries fire on no-answer, voicemail, busy, or transient dial failure. A connected call that hangs up is considered successful.
 </ParamField>
 
 <ParamField body="retry_intervals" type="number[]">
@@ -55,27 +50,27 @@ POST https://api.verbeo.ai/v1/campaign/create
 </ParamField>
 
 <ParamField body="scheduled_at" type="string">
-  Future ISO 8601 UTC timestamp at which the campaign should auto-start. Sets the initial status to `scheduled` instead of `draft`. Example: `"2026-05-12T14:00:00Z"`.
+  Future ISO 8601 UTC timestamp at which the campaign should auto-start. Sets the initial status to `scheduled` instead of `draft`.
 </ParamField>
 
-<ParamField body="business_hours" type="object">
-  Time-of-day / weekday gate for outbound dialing. Omit (or send `null`) for 24/7 dispatch. Validated server-side before the campaign is created.
+<ParamField body="business_hours" type="object | null">
+  Time-of-day / weekday gate for outbound dialing. Omit or send `null` for 24/7 dispatch.
 
   <Expandable title="business_hours properties">
     <ParamField body="tz" type="string" required>
-      IANA timezone (e.g. `"America/New_York"`, `"Europe/London"`).
+      IANA timezone (e.g. `"America/New_York"`).
     </ParamField>
     <ParamField body="days" type="number[]" required>
       Allowed ISO weekdays — `1` = Monday … `7` = Sunday. Pick at least one.
     </ParamField>
     <ParamField body="windows" type="object[]" required>
-      One or more daily windows. Each is `{ start, end }` in **minutes since local midnight**. Constraints: `0 ≤ start < end ≤ 1440`. Cross-midnight windows aren't supported — split them into two windows on adjacent days.
+      One or more daily windows. Each is `{ start, end }` in **minutes since local midnight**. Constraints: `0 ≤ start < end ≤ 1440`. Cross-midnight windows aren't supported — split them across two adjacent days.
     </ParamField>
   </Expandable>
 </ParamField>
 
 <Note>
-  Outside `business_hours`, the campaign moves to `dormant` and resumes automatically when the next allowed window opens. You don't need to poll or restart it.
+  Outside `business_hours`, the campaign moves to `dormant` and resumes automatically when the next allowed window opens.
 </Note>
 
 ## Request
@@ -83,7 +78,7 @@ POST https://api.verbeo.ai/v1/campaign/create
 <CodeGroup>
 
 ```bash cURL
-curl -X POST "https://api.verbeo.ai/v1/campaign/create" \
+curl -X POST "https://api.verbeo.ai/v1/campaigns" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -109,7 +104,7 @@ curl -X POST "https://api.verbeo.ai/v1/campaign/create" \
 ```
 
 ```javascript Node.js
-const res = await fetch("https://api.verbeo.ai/v1/campaign/create", {
+const res = await fetch("https://api.verbeo.ai/v1/campaigns", {
   method: "POST",
   headers: {
     Authorization: `Bearer ${process.env.VERBEO_API_KEY}`,
@@ -134,7 +129,7 @@ const campaignId = data.campaign_id;
 import os, requests
 
 res = requests.post(
-    "https://api.verbeo.ai/v1/campaign/create",
+    "https://api.verbeo.ai/v1/campaigns",
     headers={
         "Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}",
         "Content-Type": "application/json",
@@ -157,37 +152,7 @@ campaign_id = res.json()["data"]["campaign_id"]
 
 ## Response
 
-A successful request returns `201 Created`.
-
-<ResponseField name="success" type="boolean" required>
-  `true` when the campaign was created.
-</ResponseField>
-
-<ResponseField name="data" type="object" required>
-  <Expandable title="data properties">
-    <ResponseField name="campaign_id" type="string" required>
-      UUID of the created campaign. Store this — you need it for every subsequent action.
-    </ResponseField>
-    <ResponseField name="campaign_name" type="string" required />
-    <ResponseField name="status" type="string" required>
-      `"draft"` (no `scheduled_at`) or `"scheduled"` (`scheduled_at` was provided).
-    </ResponseField>
-    <ResponseField name="total_contacts" type="number" required />
-    <ResponseField name="business_hours" type="object | null">
-      Canonicalized config — days are deduped and sorted, windows sorted by start. `null` if not set (24/7 dispatch).
-    </ResponseField>
-    <ResponseField name="scheduled_at" type="string | null" />
-    <ResponseField name="created_at" type="string" required>
-      ISO 8601 timestamp.
-    </ResponseField>
-  </Expandable>
-</ResponseField>
-
-<ResponseField name="message" type="string" required>
-  Human-readable confirmation.
-</ResponseField>
-
-### Example response
+`201 Created`. See [Responses](/api-reference/responses) for the envelope.
 
 ```json
 {
@@ -204,14 +169,13 @@ A successful request returns `201 Created`.
     },
     "scheduled_at": null,
     "created_at": "2026-05-04T15:00:00.000Z"
-  },
-  "message": "Campaign created successfully"
+  }
 }
 ```
 
 ## Using custom data in your agent
 
-Reference any field from `custom_data` (and `contact_name`) in your agent's system prompt using `{{key_name}}` syntax:
+Reference any field from `custom_data` (and `contact_name`) in your agent's system prompt:
 
 ```
 You are calling {{contact_name}} from {{company}}.
@@ -220,27 +184,10 @@ They are a {{tier}} customer. Be prepared to discuss their renewal options.
 
 Each contact gets a personalized call with their own values substituted.
 
-## Error responses
+## Errors
 
-| Code | Status | Cause |
-|---|---|---|
-| `MISSING_FIELD` | 400 | Required field not provided. |
-| `INVALID_CONTACT` | 400 | A contact entry is missing `phone_number`. |
-| `INVALID_BUSINESS_HOURS` | 400 | `business_hours` failed shape or value validation. The `error` message lists every issue (bad tz, empty days, overlapping windows, etc.). |
-| `UNAUTHORIZED` | 401 | Missing/invalid/expired/inactive API key. |
-| `PHONE_NOT_FOUND` | 404 | Phone UUID/E.164 isn't in your workspace. |
-| `AGENT_NOT_FOUND` | 404 | Agent UUID isn't in your workspace. |
-| `CREATE_FAILED` | 500 | Database error during campaign insert. Safe to retry. |
-| `CONTACTS_INSERT_FAILED` | 500 | Bulk contact insert failed. The campaign was rolled back. Safe to retry. |
-
-```json
-{
-  "success": false,
-  "error": "Agent not found or does not belong to your workspace",
-  "code": "AGENT_NOT_FOUND"
-}
-```
+This endpoint can return `VALIDATION_FAILED`, `AGENT_NOT_FOUND`, `PHONE_NOT_FOUND`, `CREATE_FAILED`, and `CONTACTS_INSERT_FAILED` — see [Campaigns overview](/api-reference/campaigns/overview#error-codes) for status codes and meanings, and [Errors](/api-reference/errors) for the standard envelope.
 
 <Tip>
-  After creating a campaign in `draft` status, call [`/campaign/resume`](/api-reference/campaigns/resume) to start dialing. Campaigns do not start automatically unless `scheduled_at` is set.
+  After creating a campaign in `draft` status, call [Resume](/api-reference/campaigns/resume) to start dialing.
 </Tip>

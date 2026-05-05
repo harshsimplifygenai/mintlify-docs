@@ -2,13 +2,27 @@
   "$schema": "https://mintlify.com/docs.json",
   "name": "Verbeo",
   "theme": "luma",
-  "favicon": "https://media.brand.dev/207ca963-796a-45b4-a45d-c982a019326e.svg",
+  "favicon": "/logo/favicon.svg",
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
   "colors": {
     "primary": "#4464fc"
+  },
+  "api": {
+    "mdx": {
+      "server": "https://api.verbeo.ai/v1",
+      "auth": {
+        "method": "bearer"
+      }
+    },
+    "playground": {
+      "display": "interactive"
+    }
+  },
+  "contextual": {
+    "options": ["copy", "view", "chatgpt", "claude"]
   },
   "navbar": {
     "links": [
@@ -23,6 +37,12 @@
       "href": "https://dashboard.verbeo.ai"
     }
   },
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/api-reference/overview"
+    }
+  ],
   "navigation": {
     "tabs": [
       {
@@ -32,19 +52,23 @@
             "group": "Overview",
             "pages": [
               "api-reference/overview",
-              "api-reference/authentication"
+              "api-reference/authentication",
+              "api-reference/responses",
+              "api-reference/errors"
             ]
           },
           {
             "group": "Campaigns",
             "pages": [
+              "api-reference/campaigns/overview",
+              "api-reference/campaigns/list",
               "api-reference/campaigns/create",
-              "api-reference/campaigns/status",
-              "api-reference/campaigns/stats",
+              "api-reference/campaigns/get",
               "api-reference/campaigns/update",
+              "api-reference/campaigns/delete",
               "api-reference/campaigns/pause",
               "api-reference/campaigns/resume",
-              "api-reference/campaigns/archive"
+              "api-reference/campaigns/stats"
             ]
           }
         ]

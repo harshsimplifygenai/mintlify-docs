@@ -1,0 +1,108 @@
+---
+title: "Errors"
+description: "How the Verbeo API reports errors — the standard envelope, HTTP status conventions, and the full reference of global and module-specific error codes."
+---
+
+Every error response from the Verbeo API uses the same shape, regardless of which resource you're calling. This page is the canonical reference — individual endpoint pages link here instead of redefining the format.
+
+## Error envelope
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "campaign_name: campaign_name is required",
+    "details": [
+      { "field": "campaign_name", "message": "campaign_name is required" }
+    ]
+  }
+}
+```
+
+<ResponseField name="success" type="boolean" required>
+  Always `false` on error responses. Use this as your first branch — every Verbeo response is one of `{success: true, data}` or `{success: false, error}`.
+</ResponseField>
+
+<ResponseField name="error.code" type="string" required>
+  A stable, machine-readable identifier in `SCREAMING_SNAKE_CASE`. Branch your error handling on this value, not on the human-readable message. Codes are part of the public contract — they will not be renamed without notice.
+</ResponseField>
+
+<ResponseField name="error.message" type="string" required>
+  Human-readable explanation, suitable for surfacing to your end users or logs.
+</ResponseField>
+
+<ResponseField name="error.details" type="object[]">
+  Present on `VALIDATION_FAILED`. One entry per failing field, each with a `field` path (dot notation, e.g. `contacts.0.phone_number`) and a `message`.
+</ResponseField>
+
+## HTTP status conventions
+
+| Status | Meaning                                            |
+|--------|----------------------------------------------------|
+| `400`  | Malformed request (e.g. invalid JSON)              |
+| `401`  | Missing, invalid, or expired API key               |
+| `403`  | Authenticated but not allowed to access the resource |
+| `404`  | Resource does not exist or doesn't belong to your workspace |
+| `405`  | HTTP method not supported on this path             |
+| `409`  | Conflict with current resource state               |
+| `422`  | Request validation failed — see `details`          |
+| `500`  | Internal server error — safe to retry              |
+| `502`  | Upstream service error                             |
+
+## Global error codes
+
+These codes can be returned by any endpoint.
+
+| Code                   | Status | When it happens                                                  |
+|------------------------|--------|------------------------------------------------------------------|
+| `UNAUTHORIZED`         | 401    | Missing/invalid `Authorization` header, or key is inactive/expired. |
+| `FORBIDDEN`            | 403    | Authenticated, but the key cannot access this resource.          |
+| `INVALID_JSON`         | 400    | Request body is not valid JSON.                                  |
+| `VALIDATION_FAILED`    | 422    | One or more fields failed schema validation. See `details`.      |
+| `NOT_FOUND`            | 404    | Path didn't match any route, or the referenced resource is missing. |
+| `METHOD_NOT_ALLOWED`   | 405    | The path exists, but not for this HTTP verb.                     |
+| `CONFLICT`             | 409    | Resource state forbids the requested operation.                  |
+| `INTERNAL_ERROR`       | 500    | Unexpected server-side failure. Safe to retry with backoff.      |
+| `ORCHESTRATOR_ERROR`   | 502    | Internal upstream (campaign orchestrator) returned an error.     |
+
+## Module-specific error codes
+
+Each resource module defines its own codes for situations the global set doesn't cover. They follow the same envelope; the `code` value is the only thing that varies.
+
+- [Campaigns error codes](/api-reference/campaigns/overview#error-codes)
+
+<Note>
+  As Verbeo adds new modules (assistants, calls, phone numbers, …) their codes will appear in this section. The envelope shape above does not change.
+</Note>
+
+## Validation errors in detail
+
+`VALIDATION_FAILED` (422) is the only error that includes a `details` array. Each entry pinpoints one offending field:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Request failed validation (2 errors)",
+    "details": [
+      { "field": "campaign_name", "message": "campaign_name is required" },
+      { "field": "contacts.0.phone_number", "message": "phone_number is required" }
+    ]
+  }
+}
+```
+
+The `field` path uses dot notation, including numeric indices for arrays. Use this to map errors back to specific UI inputs in your client.
+
+## Retrying errors
+
+| Code                  | Retry?     | Notes                                                |
+|-----------------------|------------|------------------------------------------------------|
+| `INTERNAL_ERROR`      | Yes        | Use exponential backoff. Likely transient.           |
+| `ORCHESTRATOR_ERROR`  | Yes        | Upstream blip. Backoff and retry.                    |
+| `UNAUTHORIZED`        | No         | Fix the credentials, then retry.                     |
+| `VALIDATION_FAILED`   | No         | Fix the request body, then retry.                    |
+| `NOT_FOUND`           | No         | The resource doesn't exist for your workspace.       |
+| `CONFLICT`            | Conditionally | Resolve the conflicting state (e.g. pause a running campaign before updating it), then retry. |

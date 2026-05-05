@@ -1,0 +1,83 @@
+---
+title: "List campaigns"
+sidebarTitle: "List campaigns"
+description: "Return campaigns owned by your workspace, newest first, with offset-based pagination and an optional status filter."
+api: "GET /campaigns"
+---
+
+## Query parameters
+
+<ParamField query="limit" type="number" default="20">
+  Page size, between `1` and `100`.
+</ParamField>
+
+<ParamField query="offset" type="number" default="0">
+  Number of records to skip. Use the value of `pagination.next_cursor` from the previous response.
+</ParamField>
+
+<ParamField query="status" type="string">
+  Restrict the response to campaigns in a single status: `draft`, `scheduled`, `running`, `dormant`, `paused`, `completed`, or `cancelled`.
+</ParamField>
+
+## Request
+
+<CodeGroup>
+
+```bash cURL
+curl "https://api.verbeo.ai/v1/campaigns?limit=20&status=running" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript Node.js
+const res = await fetch(
+  "https://api.verbeo.ai/v1/campaigns?limit=20&status=running",
+  { headers: { Authorization: `Bearer ${process.env.VERBEO_API_KEY}` } },
+);
+const { data, pagination } = await res.json();
+```
+
+```python Python
+import os, requests
+
+res = requests.get(
+    "https://api.verbeo.ai/v1/campaigns",
+    params={"limit": 20, "status": "running"},
+    headers={"Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}"},
+)
+body = res.json()
+campaigns = body["data"]
+```
+
+</CodeGroup>
+
+## Response
+
+`200 OK`. The response uses the standard envelope plus pagination — see [Responses](/api-reference/responses#list-responses-and-pagination).
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
+      "campaign_name": "Q2 Sales Outreach",
+      "status": "running",
+      "total_contacts": 250,
+      "completed_calls": 41,
+      "successful_calls": 38,
+      "failed_calls": 3,
+      "scheduled_at": null,
+      "started_at": "2026-05-04T15:00:00.000Z",
+      "completed_at": null,
+      "business_hours": null,
+      "created_at": "2026-05-04T14:55:12.000Z",
+      "updated_at": "2026-05-04T15:00:00.000Z"
+    }
+  ],
+  "pagination": { "total": 42, "count": 1, "next_cursor": "20" }
+}
+```
+
+## Errors
+
+See [Errors](/api-reference/errors) for the standard envelope and global codes. This endpoint does not produce campaign-specific codes.

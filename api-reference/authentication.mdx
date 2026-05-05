@@ -3,14 +3,18 @@ title: "API authentication and keys"
 description: "Learn about Verbeo's two API key types, which endpoints each one can access, how to generate keys from the dashboard, and how to pass them in requests."
 ---
 
-Every request to the Verbeo Campaigns API must include an API key in the `Authorization` header. Verbeo issues two key types with different access levels.
+Every request to the Verbeo REST API must include a **private** API key in the `Authorization` header. Verbeo issues two key types — only one of them can call this API.
 
 ## Key types
 
-| Type | Prefix | Access |
-|------|--------|--------|
-| Private key | `vbr_` | Full Campaigns API access |
-| Public key | `vbr_pub_` | Full Campaigns API access |
+| Type | Prefix | Use in REST API? |
+|------|--------|------------------|
+| Private key | `vbr_` | **Yes** — required for every endpoint in this reference. |
+| Public key | `vbr_pub_` | No — for the embeddable web widget only. The REST API rejects public keys with `403 FORBIDDEN`. |
+
+<Note>
+  Public keys exist so the browser-side widget can authenticate without exposing your private credentials. They are not a "read-only" REST key — they cannot call any endpoint documented here. If you need read-only REST access, generate a private key and restrict it via your own gateway / proxy.
+</Note>
 
 ## Generating an API key
 
@@ -19,7 +23,7 @@ Every request to the Verbeo Campaigns API must include an API key in the `Author
     Log in to the Verbeo dashboard and navigate to **Settings → API Keys**.
   </Step>
   <Step title="Generate a new key">
-    Click **Generate New Key**. Choose the key type appropriate for your use case.
+    Click **Generate New Key** and choose **Private key**. Public keys are intended for the embeddable web widget and will be rejected by every endpoint in this reference.
   </Step>
   <Step title="Copy and store the key">
     The key is shown only once at creation time. Copy it immediately and store it in a secrets manager or environment variable. Verbeo does not display the full key again after you leave this page.
@@ -35,7 +39,7 @@ Every request to the Verbeo Campaigns API must include an API key in the `Author
 Include your API key as a Bearer token in the `Authorization` header of every request:
 
 ```bash
-curl -X GET "https://api.verbeo.ai/campaigns" \
+curl -X GET "https://api.verbeo.ai/v1/campaigns" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json"
 ```
@@ -44,13 +48,31 @@ Replace `YOUR_API_KEY` with your actual key value — including the `vbr_` or `v
 
 ## Error responses
 
-If your key is missing, invalid, or expired, the API returns a `401` response:
+If your key is missing, invalid, or expired, the API returns a `401` response with the standard error envelope:
 
 ```json
 {
-  "error": "Unauthorized"
+  "success": false,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid Authorization header"
+  }
 }
 ```
+
+If you send a **public** key (`vbr_pub_…`), the request is recognized but refused with `403`:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Public API keys cannot access the REST API. Use a private key (vbr_…)."
+  }
+}
+```
+
+See [Errors](/api-reference/errors) for the full envelope and how to handle other error codes.
 
 ## Security best practices
 

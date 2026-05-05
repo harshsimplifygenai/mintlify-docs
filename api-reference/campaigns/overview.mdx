@@ -1,0 +1,70 @@
+---
+title: "Campaigns overview"
+description: "REST endpoints for creating, monitoring, and controlling outbound batch campaigns, plus the campaign-specific error codes."
+---
+
+A campaign places outbound AI voice calls to a list of contacts. You upload contacts, point them at one of your agents and one of your phone numbers, and Verbeo handles dialing, retries, and finalization.
+
+## Resource model
+
+Every campaign belongs to your workspace and references:
+
+- An **agent** — handles the conversation on every call.
+- A **phone number** — the outbound caller ID.
+- A **contact list** — submitted at create time.
+
+Campaigns are created in `draft` status. They start dialing only when you call [Resume campaign](/api-reference/campaigns/resume), or automatically at `scheduled_at` if set.
+
+## Endpoints
+
+| Method   | Path                              | Purpose                                       |
+|----------|-----------------------------------|-----------------------------------------------|
+| `GET`    | `/campaigns`                      | [List campaigns](/api-reference/campaigns/list) in your workspace. |
+| `POST`   | `/campaigns`                      | [Create campaign](/api-reference/campaigns/create) with contacts.  |
+| `GET`    | `/campaigns/{id}`                 | [Get campaign](/api-reference/campaigns/get) state and counters.    |
+| `PATCH`  | `/campaigns/{id}`                 | [Update campaign](/api-reference/campaigns/update) settings.        |
+| `DELETE` | `/campaigns/{id}`                 | [Cancel campaign](/api-reference/campaigns/delete).                 |
+| `POST`   | `/campaigns/{id}/pause`           | [Pause campaign](/api-reference/campaigns/pause).                   |
+| `POST`   | `/campaigns/{id}/resume`          | [Resume / start campaign](/api-reference/campaigns/resume).         |
+| `GET`    | `/campaigns/{id}/stats`           | [Campaign stats](/api-reference/campaigns/stats) by contact status. |
+
+Base URL: `https://api.verbeo.ai/v1`.
+
+## Campaign lifecycle
+
+```
+draft  ──resume──►  running  ◄──pause── paused
+   │  ▲                │                    │
+   │  │             complete             update
+   │  │                ▼                    │
+   │  └─────────  completed                 ▼
+scheduled                                cancelled (DELETE)
+```
+
+- `draft` — created, contacts uploaded, not dialing.
+- `scheduled` — will auto-start at `scheduled_at`.
+- `running` — actively dialing within `business_hours`.
+- `dormant` — outside the configured business-hours window. Resumes automatically.
+- `paused` — manually paused via [pause](/api-reference/campaigns/pause).
+- `completed` — every contact has reached a terminal state.
+- `cancelled` — terminated via [DELETE](/api-reference/campaigns/delete).
+
+Updates are only allowed in `draft`, `scheduled`, or `paused`. Pause first, update, then resume.
+
+## Error codes
+
+In addition to the [global codes](/api-reference/errors#global-error-codes), the campaigns module returns:
+
+| Code                       | Status | When it happens                                                                |
+|----------------------------|--------|--------------------------------------------------------------------------------|
+| `CAMPAIGN_NOT_FOUND`       | 404    | The `{id}` does not exist in your workspace.                                   |
+| `AGENT_NOT_FOUND`          | 404    | `agent_id` does not exist in your workspace.                                   |
+| `PHONE_NOT_FOUND`          | 404    | `phone_number_id` / `phone_number` is not registered to your workspace.        |
+| `INVALID_BUSINESS_HOURS`   | 422    | `business_hours` failed validation. (Returned as part of `VALIDATION_FAILED`.) |
+| `INVALID_STATUS`           | 409    | The action is not allowed in the campaign's current status (e.g. updating a `running` campaign). |
+| `NO_UPDATES`               | 422    | `PATCH` body is empty.                                                         |
+| `CREATE_FAILED`            | 500    | Database error during campaign insert. Safe to retry.                          |
+| `CONTACTS_INSERT_FAILED`   | 500    | Bulk contact insert failed; the campaign was rolled back. Safe to retry.       |
+| `STATS_FAILED`             | 500    | Could not load contact stats.                                                  |
+
+The error envelope is documented on the [Errors](/api-reference/errors) page.

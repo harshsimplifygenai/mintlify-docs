@@ -1,89 +1,66 @@
 ---
-title: "POST /campaign/update — Update campaign settings"
+title: "Update campaign"
 sidebarTitle: "Update campaign"
-description: "Update name, retry config, schedule, or business hours on a campaign that is not currently dialing. Pause first if the campaign is running."
+description: "Update a campaign's settings. Only allowed in draft, scheduled, or paused status — pause first, update, then resume."
+api: "PATCH /campaigns/{id}"
 ---
 
-Use this endpoint to change a campaign's configuration before it starts or while it's paused. To edit a live campaign, [pause](/api-reference/campaigns/pause) it first, update, then [resume](/api-reference/campaigns/resume).
+A running campaign cannot be updated directly. Pause it first, update, then resume.
 
-<Note>
-  Updates are only allowed when the campaign's status is in `{draft, scheduled, paused}`. Otherwise the call returns `400 INVALID_STATUS`.
-</Note>
+## Path parameters
 
-## Endpoint
-
-```
-POST https://api.verbeo.ai/v1/campaign/update
-```
-
-## Request body
-
-<ParamField body="campaign_id" type="string" required>
+<ParamField path="id" type="string" required>
   UUID of the campaign.
 </ParamField>
 
-<ParamField body="campaign_name" type="string">
-  New display name.
-</ParamField>
+## Request body
 
-<ParamField body="max_retries" type="number">
-  New retry count.
-</ParamField>
+All fields are optional, but at least one must be provided.
 
-<ParamField body="retry_intervals" type="number[]">
-  New retry wait times (in minutes).
-</ParamField>
+<ParamField body="campaign_name" type="string" />
 
-<ParamField body="scheduled_at" type="string">
-  Future ISO 8601 UTC timestamp. Setting this on a `draft` campaign promotes it to `scheduled`.
+<ParamField body="max_retries" type="number" />
+
+<ParamField body="retry_intervals" type="number[]" />
+
+<ParamField body="scheduled_at" type="string | null">
+  ISO 8601 UTC timestamp, or `null` to clear. If the campaign is currently `draft` and you set a future time, status moves to `scheduled`.
 </ParamField>
 
 <ParamField body="business_hours" type="object | null">
-  New `business_hours` config (same shape as `/campaign/create`), or explicit `null` to clear it (resume 24/7 dispatch). Validated server-side.
+  Replace the campaign's business-hours config. Send `null` to clear (24/7 dispatch). See [Create campaign](/api-reference/campaigns/create#param-business-hours) for the shape.
 </ParamField>
-
-At least one mutable field is required. A body with only `campaign_id` returns `400 NO_UPDATES`.
 
 ## Request
 
 <CodeGroup>
 
 ```bash cURL
-curl -X POST "https://api.verbeo.ai/v1/campaign/update" \
+curl -X PATCH "https://api.verbeo.ai/v1/campaigns/0175091d-2c3b-4aef-8c45-dbbe24f7b3ff" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
-    "campaign_name": "Q2 Sales Outreach — v2",
     "max_retries": 3,
     "retry_intervals": [5, 30, 120]
   }'
 ```
 
 ```javascript Node.js
-await fetch("https://api.verbeo.ai/v1/campaign/update", {
-  method: "POST",
+await fetch(`https://api.verbeo.ai/v1/campaigns/${campaignId}`, {
+  method: "PATCH",
   headers: {
     Authorization: `Bearer ${process.env.VERBEO_API_KEY}`,
     "Content-Type": "application/json",
   },
-  body: JSON.stringify({
-    campaign_id: "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
-    max_retries: 3,
-  }),
+  body: JSON.stringify({ max_retries: 3, retry_intervals: [5, 30, 120] }),
 });
 ```
 
 ```python Python
-import os, requests
-
-requests.post(
-    "https://api.verbeo.ai/v1/campaign/update",
+requests.patch(
+    f"https://api.verbeo.ai/v1/campaigns/{campaign_id}",
     headers={"Authorization": f"Bearer {os.environ['VERBEO_API_KEY']}"},
-    json={
-        "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
-        "max_retries": 3,
-    },
+    json={"max_retries": 3, "retry_intervals": [5, 30, 120]},
 )
 ```
 
@@ -91,50 +68,31 @@ requests.post(
 
 ## Response
 
-A successful request returns `200 OK`.
-
-<ResponseField name="data" type="object" required>
-  <Expandable title="data properties">
-    <ResponseField name="campaign_id" type="string" required />
-    <ResponseField name="campaign_name" type="string" required />
-    <ResponseField name="status" type="string" required />
-    <ResponseField name="max_retries" type="number" required />
-    <ResponseField name="retry_intervals" type="number[]" required />
-    <ResponseField name="scheduled_at" type="string | null" />
-    <ResponseField name="business_hours" type="object | null" />
-    <ResponseField name="updated_at" type="string" required />
-  </Expandable>
-</ResponseField>
-
-<ResponseField name="message" type="string" required />
-
-### Example response
+`200 OK`. Returns the updated campaign.
 
 ```json
 {
   "success": true,
   "data": {
     "campaign_id": "0175091d-2c3b-4aef-8c45-dbbe24f7b3ff",
-    "campaign_name": "Q2 Sales Outreach — v2",
-    "status": "draft",
+    "campaign_name": "Q2 Sales Outreach",
+    "status": "paused",
     "max_retries": 3,
     "retry_intervals": [5, 30, 120],
     "scheduled_at": null,
     "business_hours": null,
-    "updated_at": "2026-05-04T15:40:00.000Z"
-  },
-  "message": "Campaign updated successfully"
+    "updated_at": "2026-05-04T16:12:00.000Z"
+  }
 }
 ```
 
-## Error responses
+## Errors
 
-| Code | Status | Cause |
-|---|---|---|
-| `MISSING_FIELD` | 400 | `campaign_id` not provided. |
-| `INVALID_STATUS` | 400 | Campaign is currently running. Pause first, then update, then resume. |
-| `NO_UPDATES` | 400 | Body had only `campaign_id` — nothing to change. |
-| `INVALID_BUSINESS_HOURS` | 400 | `business_hours` failed validation. |
-| `UNAUTHORIZED` | 401 | Missing/invalid API key. |
-| `CAMPAIGN_NOT_FOUND` | 404 | Campaign UUID isn't in your workspace. |
-| `UPDATE_FAILED` | 500 | Database error. Safe to retry. |
+| Code                       | Status | When it happens                                                            |
+|----------------------------|--------|----------------------------------------------------------------------------|
+| `INVALID_STATUS`           | 409    | Campaign is `running` / `dormant` / `completed` / `cancelled` — pause first. |
+| `CAMPAIGN_NOT_FOUND`       | 404    | The campaign doesn't exist in your workspace.                              |
+| `VALIDATION_FAILED`        | 422    | Request body failed schema validation (e.g. invalid `business_hours`, empty body). |
+| `UPDATE_FAILED`            | 500    | Database error during update.                                              |
+
+See [Errors](/api-reference/errors) for the envelope.
