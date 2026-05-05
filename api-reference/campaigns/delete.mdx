@@ -54,4 +54,10 @@ requests.delete(
 
 ## Errors
 
-`CAMPAIGN_NOT_FOUND` (404), `ORCHESTRATOR_ERROR` (502). See [Campaigns overview](/api-reference/campaigns/overview#error-codes) and [Errors](/api-reference/errors).
+| Code                  | Status | When it happens                                                       |
+|-----------------------|--------|-----------------------------------------------------------------------|
+| `CAMPAIGN_NOT_FOUND`  | 404    | The campaign doesn't exist in your workspace.                         |
+| `INVALID_STATUS`      | 409    | The campaign is already `cancelled`.                                  |
+| `ORCHESTRATOR_ERROR`  | 502    | Upstream campaign-orchestrator returned an unexpected error.          |
+
+See [Campaigns overview](/api-reference/campaigns/overview#error-codes) and [Errors](/api-reference/errors).

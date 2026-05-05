@@ -17,12 +17,8 @@ A campaign places outbound AI voice calls to a list of contacts. Campaigns are c
   UUID of the agent that will handle calls in this campaign. Must belong to your workspace.
 </ParamField>
 
-<ParamField body="phone_number_id" type="string">
-  UUID of the outbound phone number. Either `phone_number_id` **or** `phone_number` is required.
-</ParamField>
-
-<ParamField body="phone_number" type="string">
-  Phone number in E.164 format (e.g. `"+15551234567"`). Looked up by value in your workspace. Either `phone_number_id` **or** `phone_number` is required.
+<ParamField body="phone_number" type="string" required>
+  Outbound phone number to dial from, in E.164 format (e.g. `"+15551234567"`). Must be registered to your workspace — the number visible on **Settings → Phone Numbers** in the dashboard.
 </ParamField>
 
 <ParamField body="contacts" type="object[]" required>
@@ -84,7 +80,7 @@ curl -X POST "https://api.verbeo.ai/v1/campaigns" \
   -d '{
     "campaign_name": "Q2 Sales Outreach",
     "agent_id": "550e8400-e29b-41d4-a716-446655440000",
-    "phone_number_id": "f08d2c7b-7e22-4fbe-8a59-3b1cdec90112",
+    "phone_number": "+15551234567",
     "contacts": [
       {
         "phone_number": "+12125550001",
@@ -113,7 +109,7 @@ const res = await fetch("https://api.verbeo.ai/v1/campaigns", {
   body: JSON.stringify({
     campaign_name: "Q2 Sales Outreach",
     agent_id: "550e8400-e29b-41d4-a716-446655440000",
-    phone_number_id: "f08d2c7b-7e22-4fbe-8a59-3b1cdec90112",
+    phone_number: "+15551234567",
     contacts: [
       { phone_number: "+12125550001", contact_name: "Alice Johnson" },
     ],
@@ -137,7 +133,7 @@ res = requests.post(
     json={
         "campaign_name": "Q2 Sales Outreach",
         "agent_id": "550e8400-e29b-41d4-a716-446655440000",
-        "phone_number_id": "f08d2c7b-7e22-4fbe-8a59-3b1cdec90112",
+        "phone_number": "+15551234567",
         "contacts": [
             {"phone_number": "+12125550001", "contact_name": "Alice Johnson"},
         ],

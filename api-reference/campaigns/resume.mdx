@@ -57,4 +57,10 @@ requests.post(
 
 ## Errors
 
-`CAMPAIGN_NOT_FOUND` (404), `ORCHESTRATOR_ERROR` (502). The orchestrator may also return `INVALID_STATUS` (409) if the campaign is already terminal (`completed`, `cancelled`). See [Campaigns overview](/api-reference/campaigns/overview#error-codes) and [Errors](/api-reference/errors).
+| Code                  | Status | When it happens                                                                                  |
+|-----------------------|--------|--------------------------------------------------------------------------------------------------|
+| `CAMPAIGN_NOT_FOUND`  | 404    | The campaign doesn't exist in your workspace.                                                    |
+| `INVALID_STATUS`      | 409    | The campaign is `running`, `warmup`, `dormant`, `completed`, or `cancelled` — only `draft`, `scheduled`, or `paused` campaigns can be resumed. |
+| `ORCHESTRATOR_ERROR`  | 502    | Upstream campaign-orchestrator returned an unexpected error.                                     |
+
+See [Campaigns overview](/api-reference/campaigns/overview#error-codes) and [Errors](/api-reference/errors) for the standard envelope.

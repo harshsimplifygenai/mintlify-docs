@@ -54,4 +54,10 @@ To resume later, call [Resume](/api-reference/campaigns/resume).
 
 ## Errors
 
-`CAMPAIGN_NOT_FOUND` (404), `ORCHESTRATOR_ERROR` (502). See [Campaigns overview](/api-reference/campaigns/overview#error-codes) and [Errors](/api-reference/errors).
+| Code                  | Status | When it happens                                                                                |
+|-----------------------|--------|------------------------------------------------------------------------------------------------|
+| `CAMPAIGN_NOT_FOUND`  | 404    | The campaign doesn't exist in your workspace.                                                  |
+| `INVALID_STATUS`      | 409    | The campaign is `draft`, `scheduled`, `paused`, `completed`, or `cancelled` — only `running`, `warmup`, or `dormant` campaigns can be paused. |
+| `ORCHESTRATOR_ERROR`  | 502    | Upstream campaign-orchestrator returned an unexpected error.                                   |
+
+See [Campaigns overview](/api-reference/campaigns/overview#error-codes) and [Errors](/api-reference/errors).
