@@ -28,14 +28,14 @@ At a high level you will create a trunk in Twilio, point its termination and ori
     Sign in to the [Twilio Console](https://console.twilio.com). Use the **search bar** at the top, type `Elastic`, and open **Elastic SIP Trunks** (`Products & Services > Elastic SIP Trunking > Trunks`).
 
     <Frame caption="Search for Elastic in the Twilio Console and open Elastic SIP Trunks.">
-      ![Searching for Elastic SIP Trunks in the Twilio Console](/images/import-twilio-number/01-twilio-create-trunk-search.png)
+      ![01 Twilio Create Trunk Search](/images/01-twilio-create-trunk-search.png)
     </Frame>
   </Step>
   <Step title="Create a new SIP Trunk">
     On the **Elastic SIP Trunks** page, click **Create new SIP Trunk**. Give it a recognizable name such as `Verbeo` and continue.
 
     <Frame caption="Click Create new SIP Trunk to start a fresh trunk.">
-      ![Elastic SIP Trunks page with Create new SIP Trunk button](/images/import-twilio-number/02-twilio-elastic-sip-trunks.png)
+      ![02 Twilio Elastic Sip Trunks](/images/02-twilio-elastic-sip-trunks.png)
     </Frame>
   </Step>
   <Step title="(Optional) Enable call transfer on the General tab">
@@ -46,7 +46,7 @@ At a high level you will create a trunk in Twilio, point its termination and ori
     </Tip>
 
     <Frame caption="Optionally enable Call Transfer (SIP REFER) and PSTN Transfer for warm or cold transfers.">
-      ![Twilio trunk General tab with Call Transfer settings](/images/import-twilio-number/03-twilio-general-settings.png)
+      ![03 Twilio General Settings](/images/03-twilio-general-settings.png)
     </Frame>
   </Step>
   <Step title="Create your Termination SIP URI">
@@ -55,7 +55,7 @@ At a high level you will create a trunk in Twilio, point its termination and ori
     **Copy this full URI. You will paste it into Verbeo later.**
 
     <Frame caption="Create a unique Termination SIP URI. You'll reuse this value in Verbeo.">
-      ![Termination SIP URI field in Twilio](/images/import-twilio-number/04-twilio-termination-sip-uri.png)
+      ![04 Twilio Termination Sip Uri](/images/04-twilio-termination-sip-uri.png)
     </Frame>
 
     <Warning>
@@ -70,7 +70,7 @@ At a high level you will create a trunk in Twilio, point its termination and ori
     </Note>
 
     <Frame caption="Under Authentication, click the + next to Credential Lists.">
-      ![Authentication section with IP ACL and Credential List options](/images/import-twilio-number/05-twilio-termination-auth.png)
+      ![05 Twilio Termination Auth](/images/05-twilio-termination-auth.png)
     </Frame>
   </Step>
   <Step title="Fill in the new Credential List">
@@ -83,14 +83,14 @@ At a high level you will create a trunk in Twilio, point its termination and ori
     **Save these credentials somewhere safe.** You'll enter the same username and password in Verbeo. Click **Create**, then make sure the new list is selected in the **Credential Lists** dropdown and click **Save** on the trunk.
 
     <Frame caption="Set a friendly name, username, and password, then click Create.">
-      ![New Credential List dialog with username and password fields](/images/import-twilio-number/06-twilio-new-credential-list.png)
+      ![06 Twilio New Credential List](/images/06-twilio-new-credential-list.png)
     </Frame>
   </Step>
   <Step title="Open the Origination tab">
     Go to the **Origination** tab. This is where you tell Twilio to send incoming calls to Verbeo. Click the **\+** (or **Add new Origination URI**).
 
     <Frame caption="On the Origination tab, click + to add an Origination URI.">
-      ![Origination tab with no URIs yet](/images/import-twilio-number/07-twilio-origination.png)
+      ![07 Twilio Origination](/images/07-twilio-origination.png)
     </Frame>
   </Step>
   <Step title="Add your Verbeo Origination SIP URI">
@@ -107,21 +107,21 @@ At a high level you will create a trunk in Twilio, point its termination and ori
     </Note>
 
     <Frame caption="Paste your Verbeo origination SIP URI and keep Priority and Weight at 10.">
-      ![Add Origination URL dialog with Verbeo SIP URI](/images/import-twilio-number/08-twilio-add-origination-uri.png)
+      ![08 Twilio Add Origination Uri](/images/08-twilio-add-origination-uri.png)
     </Frame>
   </Step>
   <Step title="Attach your phone number to the trunk">
     Open the **Numbers** tab, click **Add a number**, and choose **Add an Existing Number** (or **Buy a Number** if you don't have one yet).
 
     <Frame caption="On the Numbers tab, choose Add an Existing Number.">
-      ![Numbers tab with Add a number menu open](/images/import-twilio-number/09-twilio-numbers-add.png)
+      ![09 Twilio Numbers Add](/images/09-twilio-numbers-add.png)
     </Frame>
   </Step>
   <Step title="Select the number(s)">
     Tick the number(s) you want to route through this trunk, then click **Add Selected**. Your number is now bound to the trunk.
 
     <Frame caption="Select your number(s) and click Add Selected.">
-      ![Add a number dialog with numbers selected](/images/import-twilio-number/10-twilio-add-number-select.png)
+      ![10 Twilio Add Number Select](/images/10-twilio-add-number-select.png)
     </Frame>
   </Step>
 </Steps>
@@ -133,7 +133,6 @@ At a high level you will create a trunk in Twilio, point its termination and ori
     In the Verbeo AI dashboard, open **Phone Numbers** from the left sidebar, then click **Add Number** (or **Add Your First Number**).
 
     <Frame caption="Go to Phone Numbers in Verbeo and click Add Number.">
-      ![Verbeo AI Phone Numbers page](/images/import-twilio-number/11-verbeo-phone-numbers.png)
     </Frame>
   </Step>
   <Step title="Enter your trunk details and assign an agent">
@@ -150,7 +149,7 @@ At a high level you will create a trunk in Twilio, point its termination and ori
     Click **Add Phone Number** to finish.
 
     <Frame caption="Paste the Twilio termination hostname, the credential username and password, and assign your agent.">
-      ![Verbeo AI Add Phone Number dialog](/images/import-twilio-number/12-verbeo-add-phone-number.png)
+      ![12 Verbeo Add Phone Number](/images/12-verbeo-add-phone-number.png)
     </Frame>
 
     <Warning>
