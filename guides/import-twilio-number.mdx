@@ -1,0 +1,174 @@
+---
+title: "Import a Phone Number from Twilio"
+description: "Connect a Twilio phone number to Verbeo AI using Twilio Elastic SIP Trunking so your AI agents can take inbound calls and place outbound calls."
+icon: "phone-arrow-up-right"
+---
+
+Verbeo AI connects to Twilio through **Elastic SIP Trunking**. Once the trunk is set up, calls to and from your Twilio number flow through Verbeo, and you can assign AI agents to handle them.
+
+There are two directions to configure, and it helps to keep them straight:
+
+- **Termination (outbound):** traffic that leaves Verbeo and goes out to the phone network through Twilio. This is what powers your agents' _outbound_ calls.
+- **Origination (inbound):** traffic that arrives at your Twilio number and is routed _into_ Verbeo. This is what lets your agents answer _inbound_ calls.
+
+At a high level you will create a trunk in Twilio, point its termination and origination at the right places, attach your number, and then register that number inside Verbeo. The whole process takes about 10 minutes.
+
+<Info>
+  **Before you start, make sure you have:**
+
+  - A **Twilio account** with at least one voice-capable phone number (or funds to buy one).
+  - A **Verbeo AI workspace** with at least one **Agent** already created (you'll assign it to the number at the end).
+  - The **Verbeo origination SIP URI**: `sip:1mq55afrqof.sip.livekit.cloud`. This is the **same for every Verbeo account**. You'll point Twilio's origination at it in Step 8.
+</Info>
+
+## Part 1: Set up the trunk in Twilio
+
+<Steps>
+  <Step title="Open Elastic SIP Trunking">
+    Sign in to the [Twilio Console](https://console.twilio.com). Use the **search bar** at the top, type `Elastic`, and open **Elastic SIP Trunks** (`Products & Services > Elastic SIP Trunking > Trunks`).
+
+    <Frame caption="Search for Elastic in the Twilio Console and open Elastic SIP Trunks.">
+      ![01 Twilio Create Trunk Search](/images/01-twilio-create-trunk-search.png)
+    </Frame>
+  </Step>
+  <Step title="Create a new SIP Trunk">
+    On the **Elastic SIP Trunks** page, click **Create new SIP Trunk**. Give it a recognizable name such as `Verbeo` and continue.
+
+    <Frame caption="Click Create new SIP Trunk to start a fresh trunk.">
+      ![02 Twilio Elastic Sip Trunks](/images/02-twilio-elastic-sip-trunks.png)
+    </Frame>
+  </Step>
+  <Step title="(Optional) Enable call transfer on the General tab">
+    On the **General** tab you can turn on **Call Transfer (SIP REFER)** and tick **Enable PSTN Transfer** if you want your AI agent to hand calls off to another phone number on the public network. **Symmetric RTP** can stay enabled. Click **Save** when done.
+
+    <Tip>
+      Leave these at their defaults if you don't need call transfers yet. You can always enable them later.
+    </Tip>
+
+    <Frame caption="Optionally enable Call Transfer (SIP REFER) and PSTN Transfer for warm or cold transfers.">
+      ![03 Twilio General Settings](/images/03-twilio-general-settings.png)
+    </Frame>
+  </Step>
+  <Step title="Create your Termination SIP URI">
+    Open the **Termination** tab. Under **Termination SIP URI**, enter a unique domain name (for example `verbeo-yourcompany`). Twilio turns it into a full address like `verbeo-yourcompany.pstn.twilio.com`.
+
+    **Copy this full URI. You will paste it into Verbeo later.**
+
+    <Frame caption="Create a unique Termination SIP URI. You'll reuse this value in Verbeo.">
+      ![04 Twilio Termination Sip Uri](/images/04-twilio-termination-sip-uri.png)
+    </Frame>
+
+    <Warning>
+      This **Termination URI** (`xxx.pstn.twilio.com`) is the value Verbeo needs for the **SIP termination hostname** field. It is **not** the same as your Verbeo origination SIP URI, so don't mix them up.
+    </Warning>
+  </Step>
+  <Step title="Add a Credential List for authentication">
+    A trunk needs at least one authentication method before it can send calls. Scroll down to **Authentication**. Next to **Credential Lists**, click the blue **\+** button to create one.
+
+    <Note>
+      You can authenticate with an **IP Access Control List** instead, but a **Credential List** (username and password) is the simplest option and matches the fields Verbeo asks for.
+    </Note>
+
+    <Frame caption="Under Authentication, click the + next to Credential Lists.">
+      ![05 Twilio Termination Auth](/images/05-twilio-termination-auth.png)
+    </Frame>
+  </Step>
+  <Step title="Fill in the new Credential List">
+    In the **New Credential List** dialog, enter:
+
+    - **Friendly Name**: e.g. `verbeo-auth`
+    - **Username**: choose a username
+    - **Password**: choose a strong password
+
+    **Save these credentials somewhere safe.** You'll enter the same username and password in Verbeo. Click **Create**, then make sure the new list is selected in the **Credential Lists** dropdown and click **Save** on the trunk.
+
+    <Frame caption="Set a friendly name, username, and password, then click Create.">
+      ![06 Twilio New Credential List](/images/06-twilio-new-credential-list.png)
+    </Frame>
+  </Step>
+  <Step title="Open the Origination tab">
+    Go to the **Origination** tab. This is where you tell Twilio to send incoming calls to Verbeo. Click the **\+** (or **Add new Origination URI**).
+
+    <Frame caption="On the Origination tab, click + to add an Origination URI.">
+      ![07 Twilio Origination](/images/07-twilio-origination.png)
+    </Frame>
+  </Step>
+  <Step title="Add your Verbeo Origination SIP URI">
+    In the **Add Origination URL** dialog, enter the Verbeo origination SIP URI exactly as shown. This is the **same value for every Verbeo account**:
+
+    ```text
+    sip:1mq55afrqof.sip.livekit.cloud
+    ```
+
+    Leave **Priority** at `10` and **Weight** at `10`. Click **Add**, then **Save**.
+
+    <Note>
+      `sip:1mq55afrqof.sip.livekit.cloud` is Verbeo's shared origination endpoint. Every account uses the same URI, so you can copy it directly. It routes inbound calls from your Twilio number into Verbeo.
+    </Note>
+
+    <Frame caption="Paste your Verbeo origination SIP URI and keep Priority and Weight at 10.">
+      ![08 Twilio Add Origination Uri](/images/08-twilio-add-origination-uri.png)
+    </Frame>
+  </Step>
+  <Step title="Attach your phone number to the trunk">
+    Open the **Numbers** tab, click **Add a number**, and choose **Add an Existing Number** (or **Buy a Number** if you don't have one yet).
+
+    <Frame caption="On the Numbers tab, choose Add an Existing Number.">
+      ![09 Twilio Numbers Add](/images/09-twilio-numbers-add.png)
+    </Frame>
+  </Step>
+  <Step title="Select the number(s)">
+    Tick the number(s) you want to route through this trunk, then click **Add Selected**. Your number is now bound to the trunk.
+
+    <Frame caption="Select your number(s) and click Add Selected.">
+      ![10 Twilio Add Number Select](/images/10-twilio-add-number-select.png)
+    </Frame>
+  </Step>
+</Steps>
+
+## Part 2: Register the number in Verbeo
+
+<Steps>
+  <Step title="Open Phone Numbers in Verbeo">
+    In the Verbeo AI dashboard, open **Phone Numbers** from the left sidebar, then click **Add Number** (or **Add Your First Number**).
+
+    <Frame caption="Go to Phone Numbers in Verbeo and click Add Number.">
+    </Frame>
+  </Step>
+  <Step title="Enter your trunk details and assign an agent">
+    In the **Add Phone Number** dialog, fill in the fields using the values from Part 1:
+
+    - **Phone Number** _(top of the dialog)_: your Twilio number in E.164 format, e.g. `+14155550123`.
+    - **SIP termination hostname**: the **Termination URI** from Step 4 (`xxx.pstn.twilio.com`).
+    - **SIP Trunk User Name**: the username from your Credential List (Step 6).
+    - **SIP Trunk Password**: the password from your Credential List (Step 6).
+    - **Nickname** _(optional)_: a friendly label, e.g. `Main line`.
+    - **Outbound Transport**: `TCP` is recommended.
+    - **Agent Assignments**: pick your **Inbound Calls Agent** and **Outbound Calls Agent**.
+
+    Click **Add Phone Number** to finish.
+
+    <Frame caption="Paste the Twilio termination hostname, the credential username and password, and assign your agent.">
+      ![12 Verbeo Add Phone Number](/images/12-verbeo-add-phone-number.png)
+    </Frame>
+
+    <Warning>
+      **SIP termination hostname = the Twilio Termination URI** (`xxx.pstn.twilio.com`), **not** your Verbeo origination SIP URI. Pasting the wrong one is the most common setup mistake.
+    </Warning>
+  </Step>
+</Steps>
+
+## You're done
+
+Your Twilio number is now connected to Verbeo. Place a quick test call to confirm:
+
+- **Inbound:** call your Twilio number, and your assigned inbound agent should answer.
+- **Outbound:** use **Make Call** in Verbeo to dial out through the number.
+
+<Accordion title="What to check if calls aren't connecting">
+  - **Termination vs. origination URI mixed up.** The Verbeo **SIP termination hostname** must be the Twilio `xxx.pstn.twilio.com` value, and Twilio's **Origination URI** must be `sip:1mq55afrqof.sip.livekit.cloud`.
+  - **Credentials don't match.** The username and password in Verbeo must be identical to the Twilio Credential List entries.
+  - **No authentication on the trunk.** Confirm the Credential List is actually selected and saved on the Twilio **Termination** tab.
+  - **Number not attached.** Re-check the **Numbers** tab to confirm the number is bound to this trunk.
+  - **No agent assigned.** Inbound calls need an **Inbound Calls Agent** selected on the number in Verbeo.
+</Accordion>
