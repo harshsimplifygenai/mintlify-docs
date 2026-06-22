@@ -24,43 +24,48 @@ The HTTP method is configured per tool. POST, PUT, and PATCH requests receive a 
 
 ### POST body (POST, PUT, PATCH methods)
 
+The body uses the same top-level envelope as the lifecycle events (`event`, `call_id`, `agent_id`, `timestamp`), with the tool name, arguments, and live call context nested under `payload`.
+
 ```json
 {
-  "call": {
-    "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
-    "call_type": "outbound",
-    "agent_id": "agent_f3a2b1c4e5d6",
-    "agent_name": "Appointment Booking Bot",
-    "workspace_id": "789e0123-e45b-67c8-d901-234567890123",
-    "from_number": "+14155551234",
-    "to_number": "+34912345678",
-    "customer_number": "+14155551234",
-    "assistant_number": "+34912345678",
-    "dynamic_variables": {
-      "customer_name": "Juan Pérez",
-      "plan": "premium"
+  "event": "tool_invoked",
+  "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+  "agent_id": "agent_f3a2b1c4e5d6",
+  "timestamp": "2026-04-17T11:03:45.200Z",
+  "payload": {
+    "tool_name": "book_appointment",
+    "args": {
+      "date": "2026-04-18",
+      "time": "11:00",
+      "service_type": "consultation"
     },
-    "transcript": "[11:03:22] User: I'd like to book an appointment\n[11:03:25] Agent: Of course, for what date?",
-    "transcript_object": [
-      {
-        "role": "user",
-        "content": "I'd like to book an appointment",
-        "timestamp": "2026-04-17T11:03:22.123Z"
+    "call": {
+      "call_type": "outbound",
+      "agent_name": "Appointment Booking Bot",
+      "workspace_id": "789e0123-e45b-67c8-d901-234567890123",
+      "from_number": "+14155551234",
+      "to_number": "+34912345678",
+      "customer_number": "+14155551234",
+      "assistant_number": "+34912345678",
+      "dynamic_variables": {
+        "customer_name": "Juan Pérez",
+        "plan": "premium"
       },
-      {
-        "role": "agent",
-        "content": "Of course, for what date?",
-        "timestamp": "2026-04-17T11:03:25.456Z"
-      }
-    ]
-  },
-  "name": "book_appointment",
-  "args": {
-    "date": "2026-04-18",
-    "time": "11:00",
-    "service_type": "consultation"
-  },
-  "timestamp": "2026-04-17T11:03:45.200Z"
+      "transcript": "[11:03:22] User: I'd like to book an appointment\n[11:03:25] Agent: Of course, for what date?",
+      "transcript_object": [
+        {
+          "role": "user",
+          "content": "I'd like to book an appointment",
+          "timestamp": "2026-04-17T11:03:22.123Z"
+        },
+        {
+          "role": "agent",
+          "content": "Of course, for what date?",
+          "timestamp": "2026-04-17T11:03:25.456Z"
+        }
+      ]
+    }
+  }
 }
 ```
 
@@ -76,56 +81,69 @@ Use POST if your tool handler needs access to call metadata such as the caller's
 
 ## Request fields
 
-<ResponseField name="call" type="object" required>
-  Metadata about the active call.
-
-  <Expandable title="call properties">
-    <ResponseField name="call.call_id" type="string" required>
-      Verbeo UUID for this call.
-    </ResponseField>
-    <ResponseField name="call.call_type" type="string" required>
-      `"inbound"`, `"outbound"`, or `"web_call"`.
-    </ResponseField>
-    <ResponseField name="call.agent_id" type="string" required>
-      UUID of the agent invoking the tool.
-    </ResponseField>
-    <ResponseField name="call.agent_name" type="string" required>
-      Display name of the agent.
-    </ResponseField>
-    <ResponseField name="call.workspace_id" type="string" required>
-      UUID of the workspace.
-    </ResponseField>
-    <ResponseField name="call.from_number" type="string">
-      Originating phone number in E.164 format. `null` for web calls.
-    </ResponseField>
-    <ResponseField name="call.to_number" type="string">
-      Destination phone number in E.164 format. `null` for web calls.
-    </ResponseField>
-    <ResponseField name="call.customer_number" type="string">
-      The caller's phone number (same as `from_number` for outbound calls).
-    </ResponseField>
-    <ResponseField name="call.dynamic_variables" type="object">
-      Dynamic variables active on this call. Empty object `{}` if none were set.
-    </ResponseField>
-    <ResponseField name="call.transcript" type="string">
-      Plain-text conversation history up to the point the tool was invoked.
-    </ResponseField>
-    <ResponseField name="call.transcript_object" type="object[]">
-      Structured transcript array up to the point the tool was invoked. Each entry has `role`, `content`, and `timestamp`. Empty array `[]` if the tool fires before any conversation turns.
-    </ResponseField>
-  </Expandable>
+<ResponseField name="event" type="string" required>
+  Always `"tool_invoked"`.
 </ResponseField>
 
-<ResponseField name="name" type="string" required>
-  Name of the tool being invoked, as configured in the tool settings.
+<ResponseField name="call_id" type="string" required>
+  Verbeo UUID for this call. Correlate it with the call's lifecycle events.
 </ResponseField>
 
-<ResponseField name="args" type="object" required>
-  Arguments extracted from the conversation by the agent, keyed according to the tool's JSON Schema. The exact keys depend on how your tool is defined.
+<ResponseField name="agent_id" type="string" required>
+  UUID of the agent invoking the tool.
 </ResponseField>
 
 <ResponseField name="timestamp" type="string" required>
   ISO 8601 timestamp of when the tool was invoked.
+</ResponseField>
+
+<ResponseField name="payload" type="object" required>
+  The tool invocation and live call context.
+
+  <Expandable title="payload properties">
+    <ResponseField name="payload.tool_name" type="string" required>
+      Name of the tool being invoked, as configured in the tool settings.
+    </ResponseField>
+    <ResponseField name="payload.args" type="object" required>
+      Arguments extracted from the conversation by the agent, keyed according to the tool's JSON Schema. The exact keys depend on how your tool is defined.
+    </ResponseField>
+    <ResponseField name="payload.call" type="object" required>
+      Metadata about the active call.
+
+      <Expandable title="call properties">
+        <ResponseField name="payload.call.call_type" type="string" required>
+          `"inbound"`, `"outbound"`, or `"web_call"`.
+        </ResponseField>
+        <ResponseField name="payload.call.agent_name" type="string" required>
+          Display name of the agent.
+        </ResponseField>
+        <ResponseField name="payload.call.workspace_id" type="string" required>
+          UUID of the workspace.
+        </ResponseField>
+        <ResponseField name="payload.call.from_number" type="string">
+          Originating phone number in E.164 format. `null` for web calls.
+        </ResponseField>
+        <ResponseField name="payload.call.to_number" type="string">
+          Destination phone number in E.164 format. `null` for web calls.
+        </ResponseField>
+        <ResponseField name="payload.call.customer_number" type="string">
+          The caller's phone number (same as `from_number` for outbound calls).
+        </ResponseField>
+        <ResponseField name="payload.call.assistant_number" type="string">
+          The agent's phone number on the call.
+        </ResponseField>
+        <ResponseField name="payload.call.dynamic_variables" type="object">
+          Dynamic variables active on this call. Empty object `{}` if none were set.
+        </ResponseField>
+        <ResponseField name="payload.call.transcript" type="string">
+          Plain-text conversation history up to the point the tool was invoked.
+        </ResponseField>
+        <ResponseField name="payload.call.transcript_object" type="object[]">
+          Structured transcript array up to the point the tool was invoked. Each entry has `role`, `content`, and `timestamp`. Empty array `[]` if the tool fires before any conversation turns.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
 </ResponseField>
 
 ## Responding to tool calls
@@ -156,7 +174,8 @@ You can return a plain string result or any JSON object:
 ```javascript
 // Express.js tool handler
 app.post("/tools/book-appointment", async (req, res) => {
-  const { call, name, args, timestamp } = req.body;
+  const { event, call_id, agent_id, timestamp, payload } = req.body;
+  const { tool_name, args, call } = payload;
 
   try {
     // Use call metadata if needed
@@ -192,8 +211,9 @@ app = Flask(__name__)
 @app.route("/tools/book-appointment", methods=["POST"])
 def book_appointment():
     data = request.json
-    call = data["call"]
-    args = data["args"]
+    payload = data["payload"]
+    call = payload["call"]
+    args = payload["args"]
 
     try:
         booking = create_appointment(
@@ -212,10 +232,10 @@ def book_appointment():
 
 ## Accessing dynamic variables
 
-Use `call.dynamic_variables` to access any variables that were set when the call was initiated, giving your tool full context about the caller:
+Use `payload.call.dynamic_variables` to access any variables that were set when the call was initiated, giving your tool full context about the caller:
 
 ```javascript
-const { customer_name, account_id, plan } = call.dynamic_variables;
+const { customer_name, account_id, plan } = payload.call.dynamic_variables;
 ```
 
 ## Differences from lifecycle events

@@ -15,7 +15,7 @@ Call disconnects  → call_ended     (immediate)
 Analysis finishes → call_analyzed  (20–30 seconds after call_ended)
 ```
 
-`call_analyzed` is the event that carries your extracted data. It arrives 20–30 seconds after the call ends — long enough for the AI to transcribe, summarize, and extract all configured fields from the full conversation.
+`call_analyzed` is the event that carries your extracted data. It typically arrives 20–30 seconds after the call ends (longer for very long calls) — enough time for Verbeo to transcribe, summarize, and extract every configured field from the full conversation. `call_analyzed` is sent for every completed call: if post-call analysis is turned off, or the AI cannot fill any field, the event still arrives with `analysis_data` set to `null`.
 
 ## Configure extraction fields
 
@@ -84,13 +84,15 @@ When analysis completes, Verbeo sends a `POST` to your `webhookUrl` with the fol
 ```json
 {
   "event": "call_analyzed",
-  "call_id": "00000000-0000-0000-0000-000000000001",
-  "agent_id": "agent_example_0001",
+  "call_id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+  "agent_id": "agent_f3a2b1c4e5d6",
   "timestamp": "2026-04-17T11:07:05.000Z",
   "payload": {
     "status": "analyzed",
     "data": {
-      "id": "00000000-0000-0000-0000-000000000001",
+      "id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+      "workspace_id": "5c1d9b27-3e4a-4f8b-bc12-7a9e0d4f6b1a",
+      "agent_id": "agent_f3a2b1c4e5d6",
       "call_type": "outbound",
       "from_number": "+15550100001",
       "to_number": "+15550100002",
@@ -99,8 +101,19 @@ When analysis completes, Verbeo sends a `POST` to your `webhookUrl` with the fol
       "started_at": "2026-04-17T11:03:15.000Z",
       "ended_at": "2026-04-17T11:06:42.000Z",
       "disconnection_reason": "user_hangup",
-      "recording_url": "https://recordings.example.com/call-abc123.wav",
+      "recording_url": "https://recordings.example.com/call-b7a3c1e4.wav",
+      "recording_sid": "RE9f8e7d6c5b4a3928170655e4d3c2b1a0",
+      "call_sid": "CA1a2b3c4d5e6f70819a2b3c4d5e6f7081",
+      "cost": 12,
+      "created_at": "2026-04-17T11:03:14.000Z",
+      "updated_at": "2026-04-17T11:07:05.000Z",
       "transcript": [
+        { "role": "agent", "content": "Hi, how can I help you today?", "timestamp": "2026-04-17T11:03:18.000Z" },
+        { "role": "user", "content": "I have a billing question.", "timestamp": "2026-04-17T11:03:22.000Z" },
+        { "role": "agent", "content": "Of course — can you share your account email?", "timestamp": "2026-04-17T11:03:25.000Z" },
+        { "role": "user", "content": "Sure, it's sarah@example.com", "timestamp": "2026-04-17T11:03:31.000Z" }
+      ],
+      "transcript_clean": [
         { "role": "agent", "content": "Hi, how can I help you today?", "timestamp": "2026-04-17T11:03:18.000Z" },
         { "role": "user", "content": "I have a billing question.", "timestamp": "2026-04-17T11:03:22.000Z" },
         { "role": "agent", "content": "Of course — can you share your account email?", "timestamp": "2026-04-17T11:03:25.000Z" },
@@ -117,7 +130,8 @@ When analysis completes, Verbeo sends a `POST` to your `webhookUrl` with the fol
       "dynamic_variables": {
         "customer_name": "Sarah Chen",
         "plan": "premium"
-      }
+      },
+      "tools": []
     }
   }
 }
@@ -128,10 +142,15 @@ When analysis completes, Verbeo sends a `POST` to your `webhookUrl` with the fol
 | Field | Description |
 |---|---|
 | `transcript` | Interleaved array of `user`, `agent`, and `tool` turns in chronological order |
+| `transcript_clean` | Same conversation with the `tool` turns removed — agent/user dialogue only |
 | `summary` | AI-generated 4–8 sentence plain-English summary of the call |
-| `analysis_data` | Your extracted fields — exactly the keys and types you configured |
+| `analysis_data` | Your extracted fields — exactly the keys and types you configured (or `null`) |
+| `tools` | Log of every tool the agent executed: `tool_name`, `tool_type`, `args`, `result`, `error`, `executed_at` |
 | `recording_url` | Signed URL to the call audio. Fetch and store it if you need it long-term |
+| `cost` | Total call cost in cents |
 | `dynamic_variables` | Variables you passed when initiating the call, echoed back for correlation |
+
+The payload also carries identifiers (`id`, `workspace_id`, `agent_id`, `call_sid`, `recording_sid`) and timestamps (`started_at`, `ended_at`, `created_at`, `updated_at`). Parse permissively and ignore any keys you don't use — Verbeo may add fields over time.
 
 ## The three webhook events
 
@@ -177,9 +196,9 @@ Fires within seconds of disconnect. Contains duration and disconnection reason b
 
 ### `call_analyzed`
 
-Fires 20–30 seconds after `call_ended`. This is the primary event for downstream automation — it contains everything.
+Fires roughly 20–30 seconds after `call_ended`. This is the primary event for downstream automation — it contains everything.
 
-Set your `webhookUrl` in the agent's settings. All three events are delivered to the same URL; dispatch in your handler on the `event` field.
+Set your `webhookUrl` in the agent's settings. All three events are delivered to the same URL; dispatch in your handler on the `event` field. You can inspect, debug, and replay every delivery from the dashboard — see [Monitor and retry deliveries](/guides/webhooks#monitor-and-retry-deliveries-in-the-dashboard).
 
 ## Set the webhook URL via API
 

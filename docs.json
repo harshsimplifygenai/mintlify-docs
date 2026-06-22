@@ -70,6 +70,14 @@
               "api-reference/campaigns/resume",
               "api-reference/campaigns/stats"
             ]
+          },
+          {
+            "group": "Webhooks",
+            "icon": "bolt",
+            "pages": [
+              "api-reference/webhooks/events",
+              "api-reference/webhooks/tool-calls"
+            ]
           }
         ]
       },
@@ -81,6 +89,15 @@
             "icon": "phone",
             "pages": [
               "guides/import-twilio-number"
+            ]
+          },
+          {
+            "group": "Call data",
+            "icon": "chart-bar",
+            "pages": [
+              "concepts/calls",
+              "guides/post-call-analysis",
+              "guides/webhooks"
             ]
           }
         ]

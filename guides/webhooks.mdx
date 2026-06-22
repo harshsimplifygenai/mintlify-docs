@@ -34,7 +34,7 @@ curl -X PATCH "https://api.verbeo.ai/agents?agentId=YOUR_AGENT_ID" \
 ```
 
 <Warning>
-  Verbeo only delivers to HTTPS endpoints. Plain HTTP URLs are rejected. Your endpoint must present a valid TLS certificate and respond with a `2xx` status within 10 seconds, or the event is retried.
+  Verbeo only delivers to HTTPS endpoints. Plain HTTP URLs are rejected. Your endpoint must present a valid TLS certificate and respond with a `2xx` status promptly — Verbeo's delivery request times out after about 12 seconds — or the event is retried.
 </Warning>
 
 ## Event payloads
@@ -51,7 +51,7 @@ All lifecycle events (`call_started`, `call_ended`, `call_analyzed`) share the s
 }
 ```
 
-Dispatch in your handler using the top-level `event` field.
+Dispatch in your handler using the top-level `event` field. For a field-by-field reference of every event, see the [Webhook events reference](/api-reference/webhooks/events).
 
 ### `call_started`
 
@@ -109,12 +109,15 @@ Fires within 1–2 seconds of disconnect. Includes duration in seconds, cost in 
 
 | Value | Meaning |
 |---|---|
+| `completed` | The call finished normally (default) |
 | `user_hangup` | The human caller hung up |
 | `agent_hangup` | The AI agent ended the call |
 | `timeout` | Call exceeded the maximum duration |
 | `voicemail` | Agent detected voicemail |
 | `no_answer` | The called party did not pick up |
 | `error` | A platform error ended the call |
+
+`disconnection_reason` is an open string — Verbeo may return additional or more specific values over time, so treat any value you don't recognize gracefully rather than assuming a fixed set.
 
 ### `call_analyzed`
 
@@ -130,6 +133,8 @@ Fires 20–30 seconds after `call_ended`. This is the primary event for downstre
     "status": "analyzed",
     "data": {
       "id": "b7a3c1e4-94f2-4c9d-a8e0-5d9f6c2a1b34",
+      "workspace_id": "5c1d9b27-3e4a-4f8b-bc12-7a9e0d4f6b1a",
+      "agent_id": "agent_f3a2b1c4e5d6",
       "call_type": "outbound",
       "from_number": "+15550100001",
       "to_number": "+15550100002",
@@ -139,12 +144,32 @@ Fires 20–30 seconds after `call_ended`. This is the primary event for downstre
       "ended_at": "2026-04-17T11:06:42.000Z",
       "disconnection_reason": "user_hangup",
       "recording_url": "https://recordings.example.com/call-b7a3c1e4.wav",
+      "recording_sid": "RE9f8e7d6c5b4a3928170655e4d3c2b1a0",
+      "call_sid": "CA1a2b3c4d5e6f70819a2b3c4d5e6f7081",
       "cost": 12,
+      "created_at": "2026-04-17T11:03:14.000Z",
+      "updated_at": "2026-04-17T11:07:05.000Z",
       "transcript": [
         { "role": "agent", "content": "Hi, how can I help you today?", "timestamp": "2026-04-17T11:03:18.000Z" },
-        { "role": "user", "content": "I have a question about my bill.", "timestamp": "2026-04-17T11:03:22.000Z" }
+        { "role": "user", "content": "Can you check the status of order ORD-98432?", "timestamp": "2026-04-17T11:03:22.000Z" },
+        {
+          "role": "tool",
+          "tool_name": "lookup_order",
+          "query": "{\"order_id\":\"ORD-98432\"}",
+          "status_code": 200,
+          "result": { "status": "shipped", "eta": "2026-04-19" },
+          "error": null,
+          "documents": [],
+          "timestamp": "2026-04-17T11:03:26.000Z"
+        },
+        { "role": "agent", "content": "Your order shipped and arrives on April 19th.", "timestamp": "2026-04-17T11:03:30.000Z" }
       ],
-      "summary": "Customer Sarah Chen called about a billing question. The agent reviewed the account and clarified the charge. The call ended with the issue resolved.",
+      "transcript_clean": [
+        { "role": "agent", "content": "Hi, how can I help you today?", "timestamp": "2026-04-17T11:03:18.000Z" },
+        { "role": "user", "content": "Can you check the status of order ORD-98432?", "timestamp": "2026-04-17T11:03:22.000Z" },
+        { "role": "agent", "content": "Your order shipped and arrives on April 19th.", "timestamp": "2026-04-17T11:03:30.000Z" }
+      ],
+      "summary": "Customer Sarah Chen called to check on order ORD-98432. The agent looked up the order, confirmed it had shipped, and gave an estimated delivery date of April 19th. The customer was satisfied and ended the call.",
       "analysis_data": {
         "issue_resolved": true,
         "sentiment": "positive"
@@ -153,11 +178,23 @@ Fires 20–30 seconds after `call_ended`. This is the primary event for downstre
         "customer_name": "Sarah Chen",
         "plan": "premium"
       },
-      "tools": []
+      "tools": [
+        {
+          "tool_name": "lookup_order",
+          "tool_type": "custom",
+          "description": "lookup_order executed (HTTP 200)",
+          "args": { "order_id": "ORD-98432" },
+          "result": { "status": "shipped", "eta": "2026-04-19" },
+          "error": null,
+          "executed_at": "2026-04-17T11:03:26.000Z"
+        }
+      ]
     }
   }
 }
 ```
+
+The `transcript` array interleaves `user`, `agent`, and `tool` turns in chronological order. A `tool` turn carries `tool_name`, `query`, `status_code`, `result`, `error`, and `documents`. The `transcript_clean` array is the same conversation with the `tool` turns removed — use it when you want only the human-readable dialogue. The `tools` array is a separate, flat log of every tool the agent executed, where `tool_type` is an open value such as `custom`, `native`, or `knowledge_base`.
 
 <Note>
   The `recording_url` is a pre-signed, time-limited link. Download and store the audio in your own system if you need it beyond the signature window.
@@ -197,7 +234,7 @@ Your handler must respond within 10 seconds with JSON. See the [Custom tools gui
 
 ### Respond with 2xx immediately
 
-Return a `200 OK` as fast as possible — within 10 seconds at the latest. If your processing takes longer, queue the payload and acknowledge immediately:
+Return a `200 OK` as fast as possible — Verbeo's delivery request times out after about 12 seconds. If your processing takes longer, queue the payload and acknowledge immediately:
 
 ```javascript
 app.post('/verbeo-events', (req, res) => {
@@ -208,7 +245,7 @@ app.post('/verbeo-events', (req, res) => {
 
 ### Make your handler idempotent
 
-Verbeo retries events if your endpoint returns a non-2xx response or times out. The same event can arrive more than once. Deduplicate on `(call_id, event)`:
+Verbeo retries events if your endpoint returns a non-2xx response or times out — a background reconciler re-drives any event that wasn't confirmed delivered, and you can resend manually from the dashboard (see [Monitor and retry deliveries](#monitor-and-retry-deliveries-in-the-dashboard)). The same event can therefore arrive more than once. Deduplicate on `(call_id, event)`:
 
 ```javascript
 const processed = new Set();
@@ -284,10 +321,34 @@ app.post('/verbeo-events', async (req, res) => {
 app.listen(3000);
 ```
 
+## Monitor and retry deliveries in the dashboard
+
+Every delivery attempt is recorded, so you can confirm exactly what Verbeo sent and debug failures without adding any logging on your side.
+
+Open **Call History**, click a call to open its details, and select the **Webhooks** tab. You'll see one row per delivery attempt, newest first, across all three lifecycle events.
+
+| Column | What it shows |
+|---|---|
+| Event | `Started`, `Ended`, or `Analyzed` |
+| Status | The HTTP status your endpoint returned — green for `2xx`, red otherwise. Shows `no response` on a timeout or network error, and `no URL` when the agent has no webhook configured |
+| Source | How the attempt was triggered: `live` (real time), `cron` (automatic retry), `retry` (manual), or `failure` (failed-call path) |
+| Time | When the attempt was made |
+
+Expand a row to see the destination URL, a summary of the payload that was sent, and the response body or error your endpoint returned. Full URLs and payloads are visible to developer-role members; other roles see metadata only. Verbeo keeps the most recent 50 attempts per call.
+
+### Retry a delivery
+
+If your endpoint was down, click **Retry**, choose which events to resend (**All**, **Started**, **Ended**, or **Analyzed**), and click **Send**. Events are re-sent in lifecycle order and stop at the first failure, so a `call_analyzed` is never delivered ahead of a still-failing `call_ended`. The tab then polls for a few minutes to surface the new attempts as they land. Manual retry is available to developer-role members.
+
+<Note>
+  Verbeo also retries failed deliveries automatically in the background, so a transient outage usually resolves itself. Use manual retry when you've fixed your endpoint and want the data redelivered right away.
+</Note>
+
 ## Security recommendations
 
 - **Verify the `event` field** before processing. Unknown events should be ignored, not errored.
 - **Use HTTPS with a valid certificate.** Plain HTTP endpoints are rejected before any events are sent.
 - **Authenticate inbound requests** by adding a shared secret to the agent's webhook URL as a query parameter (e.g. `https://api.yourcompany.com/webhooks?secret=abc123`) and validating it in your handler.
+- **Verbeo does not currently sign webhook payloads.** There is no HMAC signature header to verify — rely on the shared-secret query parameter above, and optionally allow-list Verbeo's egress IP range (contact [support@verbeo.ai](mailto:support@verbeo.ai) for the current addresses).
 - **Do not log full transcripts** to services that cannot handle PII. Transcripts may contain names, phone numbers, emails, and other personal data.
 - **Store `recording_url` contents promptly.** The pre-signed URLs expire — download recordings to your own storage if you need them for compliance or QA.

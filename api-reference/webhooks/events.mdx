@@ -5,18 +5,18 @@ description: "Reference for the three call lifecycle webhook events: call_starte
 
 Verbeo delivers real-time webhook events to the URL configured in your agent's `config.settings.webhookUrl`. When a call is placed or received using that agent, Verbeo sends HTTP POST requests at key points in the call lifecycle. All requests use `Content-Type: application/json`.
 
-There are three call lifecycle events. They always fire in order for any given call, though the timing between them varies.
+There are three call lifecycle events. They fire in lifecycle order, though retries can occasionally deliver them out of order — treat each event as self-contained.
 
 | Event | When it fires |
 |-------|--------------|
 | `call_started` | Immediately after the call is answered |
 | `call_ended` | Immediately when the call disconnects |
-| `call_analyzed` | 5–30 seconds after `call_ended`, once transcription and AI analysis are complete |
+| `call_analyzed` | Typically 20–30 seconds after `call_ended` (longer for long calls), once transcription and AI analysis are complete |
 
 Every event payload includes `call_id` and `agent_id` so a single webhook consumer can correlate all three events for the same call.
 
 <Tip>
-  Treat every incoming webhook as idempotent. Network issues can cause a delivery to be retried with the same `call_id`. Use the `call_id` field as a deduplication key.
+  Treat every incoming webhook as idempotent. Network issues or retries can cause the same event to be delivered more than once. Use the combination of `call_id` and `event` as your deduplication key.
 </Tip>
 
 ## Configuring your webhook URL
@@ -165,14 +165,14 @@ Fires once, immediately when the call disconnects. The transcript and analysis d
 </ResponseField>
 
 <ResponseField name="payload.disconnection_reason" type="string" required>
-  How the call ended. Possible values: `user_hangup`, `agent_hangup`, `completed`, `timeout`, `error`.
+  How the call ended. Common values: `completed`, `user_hangup`, `agent_hangup`, `timeout`, `error`. This is an open set — handle values you don't recognize gracefully.
 </ResponseField>
 
 ---
 
 ## `call_analyzed`
 
-Fires 5–30 seconds after `call_ended`, once transcription and AI post-call analysis are complete. This event carries the full call record including the conversation transcript, AI summary, structured analysis fields, and recording URL.
+Fires roughly 20–30 seconds after `call_ended` (longer for long calls), once transcription and AI post-call analysis are complete. It is sent for every completed call. This event carries the full call record including the conversation transcript, AI summary, structured analysis fields, and recording URL.
 
 ### Payload
 
@@ -197,7 +197,11 @@ Fires 5–30 seconds after `call_ended`, once transcription and AI post-call ana
       "ended_at": "2026-04-17T11:06:42.000Z",
       "disconnection_reason": "user_hangup",
       "recording_url": "https://recordings.verbeo.ai/b7a3c1e4_20260417_110315.wav",
+      "recording_sid": "RE9f8e7d6c5b4a3928170655e4d3c2b1a0",
+      "call_sid": "CA1a2b3c4d5e6f70819a2b3c4d5e6f7081",
       "cost": 12,
+      "created_at": "2026-04-17T11:03:14.000Z",
+      "updated_at": "2026-04-17T11:07:05.000Z",
       "transcript": [
         {
           "role": "agent",
@@ -287,13 +291,25 @@ Fires 5–30 seconds after `call_ended`, once transcription and AI post-call ana
       AI-generated natural language summary of the call.
     </ResponseField>
     <ResponseField name="payload.data.analysis_data" type="object" required>
-      Structured fields extracted by post-call analysis. The keys match the field names you configured on the agent.
+      Structured fields extracted by post-call analysis. The keys match the field names you configured on the agent. `null` when post-call analysis is disabled or no field could be extracted.
     </ResponseField>
     <ResponseField name="payload.data.recording_url" type="string">
       URL to the call recording audio file. Download and store the recording in your own system if you need it long-term, as URLs may expire.
     </ResponseField>
     <ResponseField name="payload.data.cost" type="number">
       Cost in cents.
+    </ResponseField>
+    <ResponseField name="payload.data.recording_sid" type="string">
+      Provider recording identifier, when a recording exists.
+    </ResponseField>
+    <ResponseField name="payload.data.call_sid" type="string">
+      Telephony provider call identifier. `null` for web calls.
+    </ResponseField>
+    <ResponseField name="payload.data.created_at" type="string">
+      ISO 8601 timestamp of when the call record was created.
+    </ResponseField>
+    <ResponseField name="payload.data.updated_at" type="string">
+      ISO 8601 timestamp of the last update to the call record.
     </ResponseField>
     <ResponseField name="payload.data.tools" type="object[]">
       Detailed log of each tool invocation during the call, including the arguments passed and the result or error returned.
