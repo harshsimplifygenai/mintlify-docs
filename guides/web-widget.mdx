@@ -1,0 +1,178 @@
+---
+title: "Add the web widget to your site"
+description: "Embed a voice agent on your website with a copy-paste snippet. Visitors talk to your agent in the browser over WebRTC — no phone number required."
+icon: "code"
+---
+
+The web widget lets visitors talk to one of your agents directly in their browser. You drop a small `<script>` snippet onto any page, and the widget adds a voice button that starts a real-time call over WebRTC — no phone number or app required. Each conversation is recorded as a `web` call alongside your phone calls, so transcripts, summaries, post-call analysis, webhooks, and analytics all work the same way.
+
+The widget authenticates with a **public API key**, which is safe to ship in client-side code.
+
+<Info>
+  **Before you start, make sure you have:**
+  - A Verbeo workspace and an **agent** you've already created and saved.
+  - A **public API key** (`vbr_pub_…`). See [Get a public API key](#get-a-public-api-key) below.
+</Info>
+
+## Get a public API key
+
+The widget runs in the browser, so it uses a **public** key rather than your private REST key.
+
+<Steps>
+  <Step title="Open API keys">
+    In the dashboard, go to **Settings → API Keys**.
+  </Step>
+  <Step title="Create a public key">
+    Click **Create API Key**, give it a name, and set **Key Type** to **Public API Key**. Public keys are limited to the web widget — they're safe for client-side code.
+  </Step>
+  <Step title="Copy and save it">
+    The full key (starting with `vbr_pub_`) is shown **once**. Copy it and store it somewhere safe — you won't be able to view it again, only re-create it.
+  </Step>
+</Steps>
+
+<Note>
+  Public keys can **only** start widget voice sessions. They cannot call the REST API — those endpoints reject public keys with a `403`. See [Authentication](/api-reference/authentication) for the full key-type breakdown.
+</Note>
+
+## Enable the widget on your agent
+
+The widget only works for agents that have it turned on.
+
+<Steps>
+  <Step title="Open the agent">
+    Go to **Agents** and open the agent you want to embed. (If the agent is brand new, save it first — the widget section needs a saved agent.)
+  </Step>
+  <Step title="Expand Web Widget">
+    Scroll to the **Web Widget** section and turn on **Enable Web Widget**.
+  </Step>
+  <Step title="Paste your public key">
+    Paste your full public key (`vbr_pub_…`) into the **Public API Key** field.
+  </Step>
+  <Step title="Choose a mode and style">
+    Pick an **Integration Mode** — **Floating Button** (a ready-made button Verbeo renders for you) or **Custom Button (Headless)** (you supply your own UI). In floating mode you can also set the theme, colour, position, button size, avatar, and branding.
+  </Step>
+  <Step title="Copy the embed code">
+    Click **Copy Code**. The snippet comes pre-filled with this agent's ID and the script URL.
+  </Step>
+</Steps>
+
+## Add the embed code
+
+Paste the copied snippet into your site's HTML, just before the closing `</body>` tag. The structure is shown below — copy the exact snippet from the dashboard so the `agentId` and key are filled in for you.
+
+The widget is configured through a global `window.VerbeoWidgetConfig` object, then the loader script renders it.
+
+<CodeGroup>
+
+```html Floating button
+<!-- Verbeo Voice Widget -->
+<script>
+  window.VerbeoWidgetConfig = {
+    apiKey: "vbr_pub_your_public_key",
+    agentId: "your-agent-id",
+    theme: "auto",
+    primaryColor: "#3B82F6",
+    position: "bottom-right",
+    buttonSize: "medium",
+    showBranding: true
+  };
+</script>
+<script src="https://kxmmqqcrlpxmqujkaxvv.supabase.co/functions/v1/widget-script" async></script>
+```
+
+```html Custom button (headless)
+<!-- Verbeo Voice Widget (Headless Mode) -->
+<script>
+  window.VerbeoWidgetConfig = {
+    apiKey: "vbr_pub_your_public_key",
+    agentId: "your-agent-id",
+    headless: true
+  };
+</script>
+<script src="https://kxmmqqcrlpxmqujkaxvv.supabase.co/functions/v1/widget-script" async></script>
+
+<!-- Your own button — clicking it starts the call -->
+<button data-verbeo-trigger>Talk to AI</button>
+```
+
+</CodeGroup>
+
+<Note>
+  The widget requires a secure context — serve your page over **HTTPS** (or `localhost`), since browsers only grant microphone access on secure origins.
+</Note>
+
+## Configuration options
+
+Set these keys on `window.VerbeoWidgetConfig`. In **headless** mode the appearance options are ignored — you control the look with your own button.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `apiKey` | string | — | **Required.** Your public API key (`vbr_pub_…`). |
+| `agentId` | string | — | **Required.** The agent that answers the call. |
+| `headless` | boolean | `false` | `true` to skip Verbeo's UI and drive the widget from your own button / the JS API. |
+| `theme` | `"light"` \| `"dark"` \| `"auto"` | `"auto"` | Colour theme of the floating UI. `auto` follows the visitor's system setting. |
+| `primaryColor` | string (hex) | `"#3B82F6"` | Accent colour of the floating button. |
+| `position` | `"bottom-right"` \| `"bottom-left"` | `"bottom-right"` | Where the floating button sits. |
+| `buttonSize` | `"small"` \| `"medium"` \| `"large"` | `"medium"` | Button diameter (48 / 56 / 64 px). |
+| `showBranding` | boolean | `true` | Show the "Powered by Verbeo" label. |
+| `avatarUrl` | string (URL) | — | Optional image shown on the floating button instead of the default icon. |
+
+## Control the widget from code
+
+In **headless** mode (or any time you want programmatic control), the loader exposes `window.verbeoWidget`. Add the `data-verbeo-trigger` attribute to any element to start a call when it's clicked, or call the methods directly.
+
+```javascript
+// Start and end calls
+window.verbeoWidget.start();
+window.verbeoWidget.stop();
+
+// State and mic
+window.verbeoWidget.isConnected();
+window.verbeoWidget.mute();
+window.verbeoWidget.unmute();
+
+// Events
+window.verbeoWidget.on("connecting", () => console.log("Connecting…"));
+window.verbeoWidget.on("connected", () => console.log("Connected!"));
+window.verbeoWidget.on("call-start", (data) => console.log("Call started"));
+window.verbeoWidget.on("call-end", (data) => console.log("Call ended"));
+window.verbeoWidget.on("error", (data) => console.log("Error:", data.message));
+```
+
+| Method | Description |
+|---|---|
+| `start()` | Begin a voice call with the agent. |
+| `stop()` | End the current call. |
+| `isConnected()` | Returns whether a call is currently active. |
+| `mute()` / `unmute()` | Mute or unmute the visitor's microphone. |
+| `on(event, callback)` | Subscribe to widget events: `connecting`, `connected`, `call-start`, `call-end`, `error`. |
+
+## Collecting dynamic variables
+
+If your agent's system prompt references required `{{variables}}`, the widget asks the visitor to fill them in before the call starts, then injects the values into the prompt — the same personalization you'd pass on a phone call. Variables the platform fills automatically (such as the current time) are never requested. To pre-fill values instead of prompting, capture them on your page and pass them when you call `verbeoWidget.start()`.
+
+## How web calls are recorded
+
+A widget conversation is a first-class call:
+
+- It appears in **Call History** with `call_type` set to `"web"`. Because there's no phone leg, `from_number` and `to_number` are `null`.
+- The same lifecycle [webhooks](/guides/webhooks) fire — `call_started`, `call_ended`, and `call_analyzed` — so your [post-call analysis](/guides/post-call-analysis) fields, transcript, and summary all arrive exactly as they do for phone calls.
+- Web calls show up in your analytics call-type breakdown and are billed per minute against your workspace balance, like phone calls.
+
+For the full call lifecycle and the data captured per call, see [How calls work](/concepts/calls).
+
+## Test it
+
+Open the page in a browser over HTTPS, click the widget button, allow microphone access when prompted, and start talking — the agent answers in a second or two. The call then shows up in your dashboard's Call History.
+
+<Accordion title="Troubleshooting">
+  - **The button doesn't appear / nothing happens.** Confirm **Enable Web Widget** is on for this agent, and that `agentId` in the snippet matches that agent.
+  - **"Invalid API key" or the call won't start.** Make sure you used the **public** key (`vbr_pub_…`), not your private key (`vbr_…`), and that the key is active and pasted in full.
+  - **No microphone / permission errors.** The page must be served over **HTTPS** (or `localhost`), and the visitor must allow mic access. Browsers block mic capture on insecure origins.
+  - **"Account paused" or "Insufficient balance".** The widget enforces the same billing gates as phone calls — top up your workspace or resume billing.
+  - **"At capacity" (too many calls).** You've hit your workspace's concurrent-call limit; wait for active calls to finish or raise the limit.
+</Accordion>
+
+<Warning>
+  Your public key is embedded in client-side code, so treat it as visible to anyone who views your site. It can only start widget sessions for agents that have the widget enabled — it can't access the REST API or read your agent's prompt — but if a key is misused, rotate it from **Settings → API Keys**.
+</Warning>

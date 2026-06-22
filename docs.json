@@ -99,6 +99,13 @@
             ]
           },
           {
+            "group": "Web Widget",
+            "icon": "code",
+            "pages": [
+              "guides/web-widget"
+            ]
+          },
+          {
             "group": "Call data",
             "icon": "chart-bar",
             "pages": [
