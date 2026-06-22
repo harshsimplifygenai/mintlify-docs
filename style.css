@@ -1,0 +1,11 @@
+/* Custom styles for the Verbeo docs.
+ * Mintlify loads .css files in the repo site-wide and exposes #sidebar as a
+ * styling hook (https://mintlify.com/docs/customize/custom-scripts).
+ */
+
+/* Widen the left navigation sidebar a little so longer link labels
+ * (e.g. campaign endpoints) wrap less. Default is ~16rem; bump to 18rem.
+ * Adjust this value to taste. */
+#sidebar {
+  width: 18rem;
+}

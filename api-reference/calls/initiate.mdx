@@ -42,7 +42,7 @@ POST https://api.verbeo.ai/calls
 </ParamField>
 
 <Note>
-  This request is **synchronous**: it stays open while the destination rings and returns once the call is answered (`success: true`) or fails to connect (`success: false`). Allow up to ~45 seconds for the ringing timeout.
+  The response returns **immediately** once the call is created — it does not wait for the destination to answer. The agent places the call in the background; track the outcome with the `call_started` / `call_ended` / `call_analyzed` [webhooks](/guides/webhooks).
 </Note>
 
 ## Request
@@ -121,10 +121,10 @@ call = response.json()
 
 ## Response
 
-When the call connects, the request returns `201 Created`.
+The request returns `201 Created` as soon as the call is created.
 
 <ResponseField name="success" type="boolean" required>
-  `true` when the call connected.
+  `true` when the call was created.
 </ResponseField>
 
 <ResponseField name="callId" type="string" required>
@@ -132,7 +132,7 @@ When the call connects, the request returns `201 Created`.
 </ResponseField>
 
 <ResponseField name="status" type="string" required>
-  Call status. `"in-progress"` once the call is answered.
+  Call status. `"queued"` — the call has been created and is being placed.
 </ResponseField>
 
 <ResponseField name="toNumber" type="string" required>
@@ -161,36 +161,14 @@ When the call connects, the request returns `201 Created`.
 {
   "success": true,
   "callId": "772g0622-g41d-63f6-c938-668877662222",
-  "status": "in-progress",
+  "status": "queued",
   "toNumber": "+1234567890",
   "fromNumber": "+1987654321",
   "agentId": "550e8400-e29b-41d4-a716-446655440000",
   "agentName": "Customer Support Agent",
-  "message": "Outbound call connected"
+  "message": "Outbound call created"
 }
 ```
-
-### Call placed but not connected
-
-If the call was placed but the destination did not answer or declined, the request returns `200 OK` with `success: false` and a `disconnection_reason`.
-
-```json
-{
-  "success": false,
-  "callId": "772g0622-g41d-63f6-c938-668877662222",
-  "status": "failed",
-  "disconnection_reason": "dial_no_answer",
-  "error": "sip request timed out",
-  "message": "Call could not be connected"
-}
-```
-
-| `disconnection_reason` | Meaning |
-|---|---|
-| `dial_no_answer` | The destination rang out without answering |
-| `user_declined` | The destination rejected the call (busy or declined) |
-| `telephony_provider_unavailable` | The carrier or SIP trunk failed |
-| `dial_failed` | The call could not be placed for another reason |
 
 ## Error responses
 
