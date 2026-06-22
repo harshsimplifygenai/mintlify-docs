@@ -58,6 +58,15 @@
             ]
           },
           {
+            "group": "Calls",
+            "icon": "phone-volume",
+            "pages": [
+              "api-reference/calls/initiate",
+              "api-reference/calls/get",
+              "api-reference/calls/list"
+            ]
+          },
+          {
             "group": "Campaigns",
             "pages": [
               "api-reference/campaigns/overview",

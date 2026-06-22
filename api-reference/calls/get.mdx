@@ -66,7 +66,7 @@ A successful request returns `200 OK` with the full call object.
 </ResponseField>
 
 <ResponseField name="call_sid" type="string" required>
-  Twilio Call SID (prefixed `CA`).
+  Provider call identifier. For calls placed over a LiveKit SIP number this is the call's room name (e.g. `outbound-1a2b3c4d`).
 </ResponseField>
 
 <ResponseField name="call_type" type="string" required>
@@ -153,7 +153,7 @@ A successful request returns `200 OK` with the full call object.
 ```json
 {
   "id": "772g0622-g41d-63f6-c938-668877662222",
-  "call_sid": "CAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "call_sid": "outbound-1a2b3c4d",
   "call_type": "outbound",
   "from_number": "+1987654321",
   "to_number": "+1234567890",
