@@ -95,7 +95,8 @@
             "group": "Phone Numbers",
             "icon": "phone",
             "pages": [
-              "guides/import-twilio-number"
+              "guides/import-twilio-number",
+              "features/sip-uri"
             ]
           },
           {
